@@ -38,12 +38,18 @@ const invoiceSchema = new mongoose.Schema({
   invoiceNo: String,
   invoiceDate: Date,
   items: [{
-    description: String,
-    hsnAsc: String,
-    quantity: Number,
-    rate: Number,
-    totalValue: Number
-  }]
+      description: String,
+      hsnAsc: String,
+      quantity: Number,
+      rate: Number,
+      totalValue: Number
+  }],
+  freightCharges: Number, // Add freightCharges field to the schema
+  cgst: Number, // Add cgst field to the schema
+  sgst: Number, // Add sgst field to the schema
+  igst: Number, // Add igst field to the schema
+  grandTotal: Number, // Add grandTotal field to the schema
+  grandTotalInWords: String // Add grandTotalInWords field to the schema
 });
 
 const Invoice = mongoose.model('Invoice', invoiceSchema);
@@ -51,12 +57,27 @@ const Invoice = mongoose.model('Invoice', invoiceSchema);
 // Route to handle POST requests to /api/invoices
 app.post('/api/invoices', async (req, res) => {
   try {
-    const invoice = new Invoice(req.body);
-    const savedInvoice = await invoice.save();
-    res.status(201).json(savedInvoice);
+      const invoiceData = req.body;
+      const invoice = new Invoice({
+          companyName: invoiceData.companyName,
+          gstin: invoiceData.gstin,
+          state: invoiceData.state,
+          stateCode: invoiceData.stateCode,
+          invoiceNo: invoiceData.invoiceNo,
+          invoiceDate: invoiceData.invoiceDate,
+          items: invoiceData.items,
+          freightCharges: invoiceData.freightCharges, // Assign freightCharges
+          cgst: invoiceData.cgst, // Assign cgst
+          sgst: invoiceData.sgst, // Assign sgst
+          igst: invoiceData.igst, // Assign igst
+          grandTotal: invoiceData.grandTotal, // Assign grandTotal
+          grandTotalInWords: invoiceData.grandTotalInWords // Assign grandTotalInWords
+      });
+      const savedInvoice = await invoice.save();
+      res.status(201).json(savedInvoice);
   } catch (error) {
-    console.error('Error saving invoice:', error);
-    res.status(500).json({ error: 'An error occurred while saving the invoice' });
+      console.error('Error saving invoice:', error);
+      res.status(500).json({ error: 'An error occurred while saving the invoice' });
   }
 });
 
