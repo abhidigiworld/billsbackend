@@ -45,12 +45,12 @@ const invoiceSchema = new mongoose.Schema({
       rate: Number,
       totalValue: Number
   }],
-  freightCharges: Number, // Add freightCharges field to the schema
-  cgst: Number, // Add cgst field to the schema
-  sgst: Number, // Add sgst field to the schema
-  igst: Number, // Add igst field to the schema
-  grandTotal: Number, // Add grandTotal field to the schema
-  grandTotalInWords: String // Add grandTotalInWords field to the schema
+  freightCharges: Number, 
+  cgst: Number, 
+  sgst: Number, 
+  igst: Number, 
+  grandTotal: Number, 
+  grandTotalInWords: String 
 });
 
 const Invoice = mongoose.model('Invoice', invoiceSchema);
@@ -67,12 +67,12 @@ app.post('/api/invoices', async (req, res) => {
           invoiceNo: invoiceData.invoiceNo,
           invoiceDate: invoiceData.invoiceDate,
           items: invoiceData.items,
-          freightCharges: invoiceData.freightCharges, // Assign freightCharges
-          cgst: invoiceData.cgst, // Assign cgst
-          sgst: invoiceData.sgst, // Assign sgst
-          igst: invoiceData.igst, // Assign igst
-          grandTotal: invoiceData.grandTotal, // Assign grandTotal
-          grandTotalInWords: invoiceData.grandTotalInWords // Assign grandTotalInWords
+          freightCharges: invoiceData.freightCharges, 
+          cgst: invoiceData.cgst, 
+          sgst: invoiceData.sgst, 
+          igst: invoiceData.igst, 
+          grandTotal: invoiceData.grandTotal, 
+          grandTotalInWords: invoiceData.grandTotalInWords 
       });
       const savedInvoice = await invoice.save();
       res.status(201).json(savedInvoice);
