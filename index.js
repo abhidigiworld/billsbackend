@@ -11,7 +11,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  if (username === 'Sakshi' && password === '1234') {
+  if (username === 'SakshiE2024' && password === 'sakshi0807') {
     res.json({ success: true });
   } else {
     res.status(401).json({ success: false, message: 'Invalid credentials' });
