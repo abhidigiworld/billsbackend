@@ -144,3 +144,139 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
+// Mongoose schema for Employee
+const employeeSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  dateOfJoining: { type: Date, required: true },
+  grossSalary: { type: Number, required: true },
+  status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' }
+});
+
+const Employee = mongoose.model('Employee', employeeSchema);
+
+// Route to get all employees
+app.get('/api/employees', async (req, res) => {
+  try {
+    const employees = await Employee.find();
+    res.json(employees);
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    res.status(500).json({ error: 'An error occurred while fetching employees' });
+  }
+});
+
+// Route to add a new employee
+app.post('/api/employees', async (req, res) => {
+  try {
+    const employee = new Employee(req.body);
+    const savedEmployee = await employee.save();
+    res.status(201).json(savedEmployee);
+  } catch (error) {
+    console.error('Error saving employee:', error);
+    res.status(500).json({ error: 'An error occurred while saving the employee' });
+  }
+});
+
+// Route to update an employee by ID
+app.put('/api/employees/:id', async (req, res) => {
+  try {
+    const updatedEmployee = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedEmployee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    res.json(updatedEmployee);
+  } catch (error) {
+    console.error('Error updating employee:', error);
+    res.status(500).json({ error: 'An error occurred while updating the employee' });
+  }
+});
+
+// Route to delete an employee by ID
+app.delete('/api/employees/:id', async (req, res) => {
+  try {
+    const deletedEmployee = await Employee.findByIdAndDelete(req.params.id);
+    if (!deletedEmployee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    res.json({ message: 'Employee deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting employee:', error);
+    res.status(500).json({ error: 'An error occurred while deleting the employee' });
+  }
+});
+
+// Route to get all active employees
+app.get('/api/employees/active', async (req, res) => {
+  try {
+    // Fetch employees with 'Active' status
+    const activeEmployees = await Employee.find({ status: 'Active' });
+    res.json(activeEmployees);
+  } catch (error) {
+    console.error('Error fetching active employees:', error);
+    res.status(500).json({ error: 'An error occurred while fetching active employees' });
+  }
+});
+
+
+// Mongoose schema for Salary Slip
+const salarySlipSchema = new mongoose.Schema({
+  employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+  monthOfSalary: { type: String, required: true },
+  workDays: { type: Number, required: true },
+  salaryByWorkDays: { type: Number, required: true },
+  overtimeHours: { type: Number, default: 0 },
+  overtimeSalary: { type: Number, default: 0 },
+  totalSalary: { type: Number, required: true },
+  advance: { type: Number, default: 0 },
+  esic: { type: Number, default: 0 },
+  inHandSalary: { type: Number, required: true }
+});
+
+const SalarySlip = mongoose.model('SalarySlip', salarySlipSchema);
+
+// Route to get all salary slips
+app.get('/api/salary-slips', async (req, res) => {
+  try {
+    const salarySlips = await SalarySlip.find().populate('employeeId', 'name');
+    res.json(salarySlips);
+  } catch (error) {
+    console.error('Error fetching salary slips:', error);
+    res.status(500).json({ error: 'An error occurred while fetching salary slips' });
+  }
+});
+
+// Route to create a new salary slip
+app.post('/api/salary-slips', async (req, res) => {
+  try {
+    const salarySlipData = req.body;
+    const totalSalary = salarySlipData.salaryByWorkDays + salarySlipData.overtimeSalary;
+    const inHandSalary = totalSalary - (salarySlipData.esic || 0) - (salarySlipData.advance || 0);
+
+    const salarySlip = new SalarySlip({
+      ...salarySlipData,
+      totalSalary,
+      inHandSalary
+    });
+
+    const savedSalarySlip = await salarySlip.save();
+    res.status(201).json(savedSalarySlip);
+  } catch (error) {
+    console.error('Error saving salary slip:', error);
+    res.status(500).json({ error: 'An error occurred while saving the salary slip' });
+  }
+});
+
+// Route to delete a salary slip by ID
+app.delete('/api/salary-slips/:id', async (req, res) => {
+  try {
+    const deletedSalarySlip = await SalarySlip.findByIdAndDelete(req.params.id);
+    if (!deletedSalarySlip) {
+      return res.status(404).json({ error: 'Salary slip not found' });
+    }
+    res.json({ message: 'Salary slip deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting salary slip:', error);
+    res.status(500).json({ error: 'An error occurred while deleting the salary slip' });
+  }
+});
