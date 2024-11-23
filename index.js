@@ -18,17 +18,99 @@ app.post('/login', (req, res) => {
   }
 });
 
-app.get('/', (req, res) => {
-  res.send('Hello World!');
-});
-
-
 // MongoDB connection
 
 
 mongoose.connect("mongodb+srv://sakshi:sakshi2003@sakshieneterprises.49cthwx.mongodb.net/?retryWrites=true&w=majority&appName=SakshiEneterprises")
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err))
+
+
+// User Schema
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  password: {
+    type: String,
+    required: true,
+  },
+  role: {
+    type: String,
+    default: 'user', // Default role assigned to new users
+  },
+});
+
+const User = mongoose.model('User', userSchema);
+
+// Sign Up Endpoint
+app.post('/signup', async (req, res) => {
+  const { name, email, password } = req.body;
+
+  try {
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'Email already in use' });
+    }
+
+    // Create new user
+    const newUser = new User({ name, email, password });
+    await newUser.save();
+
+    res.status(201).json({ success: true, message: 'User registered successfully' });
+  } catch (error) {
+    console.error('Error during sign up:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Update User Endpoint
+app.put('/user/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, email, role } = req.body;
+
+  try {
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { name, email, role },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.status(200).json({ success: true, message: 'User updated successfully', user: updatedUser });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Delete User Endpoint
+app.delete('/user/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deletedUser = await User.findByIdAndDelete(id);
+
+    if (!deletedUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.status(200).json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
 // Mongoose schema
 const invoiceSchema = new mongoose.Schema({
