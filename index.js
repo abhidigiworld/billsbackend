@@ -5,8 +5,6 @@ const bodyParser = require('body-parser');
 const app = express();
 const port = process.env.PORT || 3000;
 
-const cors = require('cors');
-
 app.use(cors());
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -22,7 +20,7 @@ app.post('/login', (req, res) => {
 
 // MongoDB connection
 
-
+//mongodb+srv://sakshi:sakshi2003@sakshieneterprises.49cthwx.mongodb.net/?retryWrites=true&w=majority&appName=SakshiEneterprises
 mongoose.connect("mongodb+srv://astech385_db_user:YfgNjHwgHrnl4tp4@cluster0.ezcouqk.mongodb.net/?appName=Cluster0")
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err))
