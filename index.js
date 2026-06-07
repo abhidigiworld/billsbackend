@@ -509,7 +509,9 @@ const employeeSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   dateOfJoining: { type: Date, required: true },
   grossSalary: { type: Number, required: true },
-  status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' }
+  designation: { type: String, default: '' },
+  location: { type: String, default: '' },
+  status: { type: String, enum: ['Active', 'On Hold', 'On Holiday', 'Inactive'], default: 'Active' }
 });
 
 const Employee = mongoose.model('Employee', employeeSchema);
@@ -576,11 +578,11 @@ app.delete('/api/employees/:id', async (req, res) => {
   }
 });
 
-// Route to get all active employees
+// Route to get all active employees (Active, On Hold, On Holiday)
 app.get('/api/employees/active', async (req, res) => {
   try {
-    // Fetch employees with 'Active' status
-    const activeEmployees = await Employee.find({ status: 'Active' });
+    // Fetch employees who are not 'Inactive'
+    const activeEmployees = await Employee.find({ status: { $ne: 'Inactive' } });
     res.json(activeEmployees);
   } catch (error) {
     console.error('Error fetching active employees:', error);
@@ -600,6 +602,10 @@ const salarySlipSchema = new mongoose.Schema({
   totalSalary: { type: Number, required: true },
   advance: { type: Number, default: 0 },
   esic: { type: Number, default: 0 },
+  lunchDays: { type: Number, default: 0 },
+  lunchRate: { type: Number, default: 0 },
+  lunchDeduction: { type: Number, default: 0 },
+  shiftHours: { type: Number, default: 8 },
   inHandSalary: { type: Number, required: true }
 });
 
@@ -620,12 +626,22 @@ app.get('/api/salary-slips', async (req, res) => {
 app.post('/api/salary-slips', async (req, res) => {
   try {
     const salarySlipData = req.body;
-    const totalSalary = salarySlipData.salaryByWorkDays + salarySlipData.overtimeSalary;
-    const inHandSalary = totalSalary - (salarySlipData.esic || 0) - (salarySlipData.advance || 0);
+    const salaryByWorkDays = Math.floor(salarySlipData.salaryByWorkDays || 0);
+    const overtimeSalary = Math.floor(salarySlipData.overtimeSalary || 0);
+    const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary);
+    const esic = Math.floor(salarySlipData.esic || 0);
+    const advance = Math.floor(salarySlipData.advance || 0);
+    const lunchDeduction = Math.floor(salarySlipData.lunchDeduction || 0);
+    const inHandSalary = Math.floor(totalSalary - esic - advance - lunchDeduction);
 
     const salarySlip = new SalarySlip({
       ...salarySlipData,
+      salaryByWorkDays,
+      overtimeSalary,
       totalSalary,
+      esic,
+      advance,
+      lunchDeduction,
       inHandSalary
     });
 
@@ -729,6 +745,15 @@ app.get('/api/attendance/my-records', async (req, res) => {
   } catch (error) {
     console.error('Error fetching attendance records:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+// Get All Attendance Records Endpoint (Admin)
+app.get('/api/attendance', async (req, res) => {
+  try {
+    const records = await Attendance.find().populate('employeeId');
+    res.status(200).json(records);
+  } catch (error) {
+    console.error('Error fetching all attendance records:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
