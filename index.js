@@ -462,6 +462,38 @@ app.post('/api/invoices', async (req, res) => {
   }
 });
 
+// Helper to robustly format date strings to ISO YYYY-MM-DD format
+const formatDateToISO = (dateStr) => {
+  if (!dateStr) return null;
+  const cleanStr = dateStr.trim();
+  
+  // Try splitting by hyphen or slash
+  const parts = cleanStr.split(/[-\/]/);
+  if (parts.length === 3) {
+    // Check if the first part is a 4-digit year (YYYY-MM-DD)
+    if (parts[0].length === 4) {
+      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+    }
+    // Check if the last part is a 4-digit year (DD-MM-YYYY)
+    if (parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    // Check if the last part is a 2-digit year (DD-MM-YY)
+    if (parts[2].length === 2) {
+      const year = parseInt(parts[2]) > 50 ? '19' + parts[2] : '20' + parts[2];
+      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+
+  // Fallback to native Date parser
+  const parsed = new Date(cleanStr);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+
+  return null;
+};
+
 // Helper for backend number to words conversion (fallback)
 const convertNumberToWordsBackend = (number) => {
   if (isNaN(number) || number === null || number === undefined) return '';
@@ -536,6 +568,7 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
 
   const results = [];
   const errors = [];
+  const seenInvoiceNos = new Set();
 
   for (const file of files) {
     try {
@@ -608,7 +641,7 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
             const extracted = JSON.parse(rawContent);
 
             invoiceNo = extracted.invoiceNo || regexInvoiceNo || 'TEMP-' + Math.floor(100 + Math.random() * 900);
-            invoiceDate = extracted.invoiceDate || new Date().toISOString().split('T')[0];
+            invoiceDate = formatDateToISO(extracted.invoiceDate) || new Date().toISOString().split('T')[0];
             companyName = extracted.companyName || 'Unknown Recipient';
             gstin = (extracted.gstin || '').toUpperCase();
             state = extracted.state || '';
@@ -653,16 +686,7 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
                           cleanText.match(/(?:Invoice\s*Date|Date)[.:\s]+([\d-/]{8,10})/i);
         if (dateMatch) {
           const rawDate = dateMatch[1].trim();
-          if (rawDate.includes('/')) {
-            const parts = rawDate.split('/');
-            if (parts[0].length === 4) { // YYYY/MM/DD
-              invoiceDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
-            } else { // DD/MM/YYYY
-              invoiceDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-            }
-          } else {
-            invoiceDate = rawDate;
-          }
+          invoiceDate = formatDateToISO(rawDate) || new Date().toISOString().split('T')[0];
         } else {
           invoiceDate = new Date().toISOString().split('T')[0];
         }
@@ -768,6 +792,16 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
           });
         }
       }
+
+      // Check if invoice number is duplicate in current batch
+      if (seenInvoiceNos.has(invoiceNo)) {
+        errors.push({
+          file: file.originalname,
+          error: `Duplicate invoice number: ${invoiceNo} is present multiple times in this upload batch.`
+        });
+        continue;
+      }
+      seenInvoiceNos.add(invoiceNo);
 
       // Check if invoice number is duplicate in database
       const isDuplicate = await Invoice.findOne({ invoiceNo });
