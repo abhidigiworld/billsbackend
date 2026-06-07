@@ -746,6 +746,8 @@ app.get('/api/attendance/my-records', async (req, res) => {
     console.error('Error fetching attendance records:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
+});
+
 // Get All Attendance Records Endpoint (Admin)
 app.get('/api/attendance', async (req, res) => {
   try {
