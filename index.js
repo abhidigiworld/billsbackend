@@ -907,3 +907,55 @@ app.put('/api/salary-slips/:id', async (req, res) => {
   }
 });
 
+// Admin Mark Attendance Endpoint (Admin Only)
+app.post('/api/attendance/admin-mark', async (req, res) => {
+  const { employeeId, date, status, checkIn, checkOut } = req.body;
+
+  try {
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee record not found' });
+    }
+
+    let checkInDate = null;
+    let checkOutDate = null;
+
+    if (status === 'Present') {
+      if (checkIn) {
+        checkInDate = new Date(`${date}T${checkIn}:00`);
+      } else {
+        // Default checkIn to 09:00 if status is Present but not specified
+        checkInDate = new Date(`${date}T09:00:00`);
+      }
+      if (checkOut) {
+        checkOutDate = new Date(`${date}T${checkOut}:00`);
+      } else {
+        // Default checkOut to 17:00 if status is Present but not specified
+        checkOutDate = new Date(`${date}T17:00:00`);
+      }
+    }
+
+    let attendance = await Attendance.findOne({ employeeId, date });
+    if (attendance) {
+      attendance.status = status;
+      attendance.checkIn = checkInDate;
+      attendance.checkOut = checkOutDate;
+      await attendance.save();
+    } else {
+      attendance = new Attendance({
+        employeeId,
+        date,
+        status,
+        checkIn: checkInDate,
+        checkOut: checkOutDate
+      });
+      await attendance.save();
+    }
+
+    res.status(200).json({ success: true, message: 'Attendance updated successfully!', attendance });
+  } catch (error) {
+    console.error('Error in admin-mark attendance:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
