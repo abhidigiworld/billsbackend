@@ -1,7 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
+const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -9,21 +12,105 @@ app.use(cors());
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  if (username === 'SakshiE2024' && password === 'sakshi0807') {
-    res.json({ success: true });
-  } else {
-    res.status(401).json({ success: false, message: 'Invalid credentials' });
-  }
-});
 
 // MongoDB connection
-
-//mongodb+srv://sakshi:sakshi2003@sakshieneterprises.49cthwx.mongodb.net/?retryWrites=true&w=majority&appName=SakshiEneterprises
-mongoose.connect("mongodb+srv://astech385_db_user:YfgNjHwgHrnl4tp4@cluster0.ezcouqk.mongodb.net/?appName=Cluster0")
+const mongoURI = process.env.MONGODB_URI || "mongodb+srv://astech385_db_user:YfgNjHwgHrnl4tp4@cluster0.ezcouqk.mongodb.net/?appName=Cluster0";
+mongoose.connect(mongoURI)
   .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Mail Transporter & Helper
+const getTransporter = () => {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_PORT === '465',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+};
+
+const sendOTPEmail = async (email, otp, subject, text) => {
+  console.log(`[OTP Verification] OTP for ${email}: ${otp}`);
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.log(`SMTP credentials not set. Logging OTP to console: ${otp}`);
+    return { loggedToConsole: true };
+  }
+
+  try {
+    const transporter = getTransporter();
+    await transporter.sendMail({
+      from: `"Sakshi Enterprises" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: subject,
+      text: text,
+    });
+    return { sent: true };
+  } catch (error) {
+    console.error('Failed to send SMTP email:', error);
+    throw error;
+  }
+};
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  // 1. Hardcoded admin check fallback
+  if (username === 'SakshiE2024' && password === 'sakshi0807') {
+    return res.json({ success: true, user: { name: 'Sakshi Admin', email: 'SakshiE2024', role: 'admin' } });
+  }
+
+  try {
+    // 2. Search database by email or name
+    const user = await User.findOne({
+      $or: [
+        { email: username },
+        { name: username }
+      ]
+    });
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // 3. Compare password (bcrypt with plaintext fallback)
+    let isMatch = false;
+    try {
+      isMatch = await bcrypt.compare(password, user.password);
+    } catch (err) {
+      isMatch = false;
+    }
+
+    if (!isMatch && user.password === password) {
+      isMatch = true;
+    }
+
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // 4. Verify user is activated
+    if (!user.isVerified) {
+      return res.status(400).json({ success: false, message: 'Please verify your email address first' });
+    }
+
+    // 5. Return success
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Error logging in:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
 
 // User Schema
@@ -45,6 +132,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'user', // Default role assigned to new users
   },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  otp: String,
+  otpExpires: Date,
+  resetOtp: String,
+  resetOtpExpires: Date,
 });
 
 const User = mongoose.model('User', userSchema);
@@ -60,13 +155,194 @@ app.post('/signup', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email already in use' });
     }
 
-    // Create new user
-    const newUser = new User({ name, email, password });
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Create new user (pending verification)
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+      isVerified: false,
+      otp,
+      otpExpires
+    });
     await newUser.save();
 
-    res.status(201).json({ success: true, message: 'User registered successfully' });
+    // Send OTP email
+    let isSmtpConfigured = true;
+    try {
+      await sendOTPEmail(
+        email,
+        otp,
+        'Verify your account - Sakshi Enterprises',
+        `Your verification code is: ${otp}. It is valid for 10 minutes.`
+      );
+    } catch (mailError) {
+      console.error('Mail error, but account was created in pending state. Logged OTP to console.');
+      isSmtpConfigured = false;
+    }
+
+    res.status(201).json({
+      success: true,
+      message: isSmtpConfigured ? 'Verification OTP sent to your email.' : 'Registration successful! (SMTP not configured, OTP printed to console).',
+      email,
+      otp: (!process.env.SMTP_USER || !process.env.SMTP_PASS) ? otp : undefined
+    });
   } catch (error) {
     console.error('Error during sign up:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Verify OTP Endpoint
+app.post('/verify-otp', async (req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ success: false, message: 'Account is already verified' });
+    }
+
+    if (user.otp !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid verification code' });
+    }
+
+    if (new Date() > user.otpExpires) {
+      return res.status(400).json({ success: false, message: 'Verification code has expired' });
+    }
+
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Account verified successfully!' });
+  } catch (error) {
+    console.error('Error verifying OTP:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Resend OTP Endpoint
+app.post('/resend-otp', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ success: false, message: 'Account is already verified' });
+    }
+
+    // Generate new OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    await user.save();
+
+    let isSmtpConfigured = true;
+    try {
+      await sendOTPEmail(
+        email,
+        otp,
+        'Verify your account - Sakshi Enterprises',
+        `Your verification code is: ${otp}. It is valid for 10 minutes.`
+      );
+    } catch (mailError) {
+      isSmtpConfigured = false;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: isSmtpConfigured ? 'New verification OTP sent to your email.' : 'New OTP generated (SMTP not configured, OTP printed to console).',
+      otp: (!process.env.SMTP_USER || !process.env.SMTP_PASS) ? otp : undefined
+    });
+  } catch (error) {
+    console.error('Error resending OTP:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Forgot Password Endpoint
+app.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Generate password reset OTP
+    const resetOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetOtp = resetOtp;
+    user.resetOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    await user.save();
+
+    let isSmtpConfigured = true;
+    try {
+      await sendOTPEmail(
+        email,
+        resetOtp,
+        'Reset your password - Sakshi Enterprises',
+        `Your password reset code is: ${resetOtp}. It is valid for 10 minutes.`
+      );
+    } catch (mailError) {
+      isSmtpConfigured = false;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: isSmtpConfigured ? 'Password reset OTP sent to your email.' : 'Password reset code generated (SMTP not configured, OTP printed to console).',
+      otp: (!process.env.SMTP_USER || !process.env.SMTP_PASS) ? resetOtp : undefined
+    });
+  } catch (error) {
+    console.error('Error during forgot password:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Reset Password Endpoint
+app.post('/reset-password', async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.resetOtp !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid password reset code' });
+    }
+
+    if (new Date() > user.resetOtpExpires) {
+      return res.status(400).json({ success: false, message: 'Password reset code has expired' });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.resetOtp = undefined;
+    user.resetOtpExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Password reset successful! You can now log in.' });
+  } catch (error) {
+    console.error('Error resetting password:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -230,12 +506,24 @@ app.listen(port, () => {
 // Mongoose schema for Employee
 const employeeSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
   dateOfJoining: { type: Date, required: true },
   grossSalary: { type: Number, required: true },
   status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' }
 });
 
 const Employee = mongoose.model('Employee', employeeSchema);
+
+// Mongoose schema for Attendance
+const attendanceSchema = new mongoose.Schema({
+  employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+  date: { type: String, required: true }, // YYYY-MM-DD
+  checkIn: { type: Date },
+  checkOut: { type: Date },
+  status: { type: String, enum: ['Present', 'Absent', 'Leave'], default: 'Present' }
+});
+
+const Attendance = mongoose.model('Attendance', attendanceSchema);
 
 // Route to get all employees
 app.get('/api/employees', async (req, res) => {
@@ -360,5 +648,120 @@ app.delete('/api/salary-slips/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting salary slip:', error);
     res.status(500).json({ error: 'An error occurred while deleting the salary slip' });
+  }
+});
+
+// Attendance Check-In Endpoint
+app.post('/api/attendance/check-in', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const employee = await Employee.findOne({ email });
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee record not found for this email' });
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const existingAttendance = await Attendance.findOne({ employeeId: employee._id, date: todayStr });
+    if (existingAttendance) {
+      return res.status(400).json({ success: false, message: 'Already checked in today' });
+    }
+
+    const newAttendance = new Attendance({
+      employeeId: employee._id,
+      date: todayStr,
+      checkIn: new Date(),
+      status: 'Present'
+    });
+    await newAttendance.save();
+
+    res.status(201).json({ success: true, message: 'Checked in successfully!', attendance: newAttendance });
+  } catch (error) {
+    console.error('Error during check-in:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Attendance Check-Out Endpoint
+app.post('/api/attendance/check-out', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const employee = await Employee.findOne({ email });
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee record not found for this email' });
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const attendance = await Attendance.findOne({ employeeId: employee._id, date: todayStr });
+    if (!attendance) {
+      return res.status(400).json({ success: false, message: 'Please check in first' });
+    }
+
+    if (attendance.checkOut) {
+      return res.status(400).json({ success: false, message: 'Already checked out today' });
+    }
+
+    attendance.checkOut = new Date();
+    await attendance.save();
+
+    res.status(200).json({ success: true, message: 'Checked out successfully!', attendance });
+  } catch (error) {
+    console.error('Error during check-out:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Get My Attendance Records Endpoint
+app.get('/api/attendance/my-records', async (req, res) => {
+  const { email } = req.query;
+
+  try {
+    const employee = await Employee.findOne({ email });
+    if (!employee) {
+      return res.status(200).json([]); // Return empty list if no employee record exists yet
+    }
+
+    const records = await Attendance.find({ employeeId: employee._id }).sort({ date: -1 });
+    res.status(200).json(records);
+  } catch (error) {
+    console.error('Error fetching attendance records:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Get My Salary Slips Endpoint
+app.get('/api/salary-slips/my-slips', async (req, res) => {
+  const { email } = req.query;
+
+  try {
+    const employee = await Employee.findOne({ email });
+    if (!employee) {
+      return res.status(200).json([]);
+    }
+
+    const salarySlips = await SalarySlip.find({ employeeId: employee._id }).populate('employeeId', 'name');
+    res.status(200).json(salarySlips);
+  } catch (error) {
+    console.error('Error fetching salary slips:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Get My Employee Profile Endpoint
+app.get('/api/employees/my-profile', async (req, res) => {
+  const { email } = req.query;
+
+  try {
+    const employee = await Employee.findOne({ email });
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee profile not found' });
+    }
+    res.status(200).json(employee);
+  } catch (error) {
+    console.error('Error fetching employee profile:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
