@@ -824,6 +824,84 @@ app.put('/api/users/:id', async (req, res) => {
   }
 });
 
+// Request OTP for Profile Password Update
+app.post('/api/users/profile/request-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Generate a 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    await user.save();
+
+    await sendOTPEmail(
+      user.email,
+      otp,
+      'Password Change Verification OTP - Sakshi Enterprises',
+      `Your OTP for updating your account password is: ${otp}. This code is valid for 10 minutes.`
+    );
+
+    res.json({ success: true, message: 'OTP sent successfully to your email.' });
+  } catch (error) {
+    console.error('Error requesting profile OTP:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update User Profile Endpoint (Self Update)
+app.put('/api/users/profile/:id', async (req, res) => {
+  try {
+    const { name, email, password, otp } = req.body;
+    const userId = req.params.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (email && email !== user.email) {
+      const existingEmail = await User.findOne({ email });
+      if (existingEmail) {
+        return res.status(400).json({ error: 'Email is already in use' });
+      }
+      user.email = email;
+    }
+
+    if (name) {
+      user.name = name;
+    }
+
+    if (password && password.trim() !== '') {
+      if (!otp) {
+        return res.status(400).json({ error: 'OTP is required to update the password.' });
+      }
+      if (user.otp !== otp || new Date() > user.otpExpires) {
+        return res.status(400).json({ error: 'Invalid or expired OTP.' });
+      }
+      
+      user.password = await bcrypt.hash(password, 10);
+      user.otp = undefined;
+      user.otpExpires = undefined;
+    }
+
+    const savedUser = await user.save();
+    res.json({
+      id: savedUser._id,
+      name: savedUser.name,
+      email: savedUser.email,
+      role: savedUser.role
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Delete User Endpoint (Admin Only)
 app.delete('/api/users/:id', async (req, res) => {
   try {
