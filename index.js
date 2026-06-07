@@ -1436,7 +1436,8 @@ const employeeSchema = new mongoose.Schema({
   grossSalary: { type: Number, required: true },
   designation: { type: String, default: '' },
   location: { type: String, default: '' },
-  status: { type: String, enum: ['Active', 'On Hold', 'On Holiday', 'Inactive', 'Discontinued'], default: 'Active' }
+  status: { type: String, enum: ['Active', 'On Hold', 'On Holiday', 'Inactive', 'Discontinued'], default: 'Active' },
+  defaultShift: { type: String, enum: ['Day', 'Night'], default: 'Day' }
 });
 
 const Employee = mongoose.model('Employee', employeeSchema);
@@ -1449,7 +1450,8 @@ const attendanceSchema = new mongoose.Schema({
   checkOut: { type: Date },
   status: { type: String, enum: ['Present', 'Absent', 'Leave', 'Holiday'], default: 'Absent' },
   overtimeHours: { type: Number, default: 0 },
-  isNightShift: { type: Boolean, default: false }
+  isNightShift: { type: Boolean, default: false },
+  nightShiftHours: { type: Number, default: 0 }
 });
 
 const Attendance = mongoose.model('Attendance', attendanceSchema);
@@ -1526,6 +1528,7 @@ const salarySlipSchema = new mongoose.Schema({
   salaryByWorkDays: { type: Number, required: true },
   overtimeHours: { type: Number, default: 0 },
   overtimeSalary: { type: Number, default: 0 },
+  nightShiftHours: { type: Number, default: 0 },
   nightShiftDays: { type: Number, default: 0 },
   nightShiftRate: { type: Number, default: 0 },
   nightShiftAllowance: { type: Number, default: 0 },
@@ -1558,9 +1561,17 @@ app.post('/api/salary-slips', async (req, res) => {
     const salarySlipData = req.body;
     const salaryByWorkDays = Math.floor(salarySlipData.salaryByWorkDays || 0);
     const overtimeSalary = Math.floor(salarySlipData.overtimeSalary || 0);
+    const nightShiftHours = parseFloat(salarySlipData.nightShiftHours || 0);
     const nightShiftDays = parseInt(salarySlipData.nightShiftDays || 0);
     const nightShiftRate = Math.floor(parseFloat(salarySlipData.nightShiftRate || 0));
-    const nightShiftAllowance = Math.floor(nightShiftDays * nightShiftRate);
+    
+    let nightShiftAllowance = 0;
+    if (nightShiftHours > 0) {
+      nightShiftAllowance = Math.floor(nightShiftHours * nightShiftRate);
+    } else {
+      nightShiftAllowance = Math.floor(nightShiftDays * nightShiftRate);
+    }
+    
     const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary + nightShiftAllowance);
     const esic = Math.floor(salarySlipData.esic || 0);
     const advance = Math.floor(salarySlipData.advance || 0);
@@ -1571,6 +1582,7 @@ app.post('/api/salary-slips', async (req, res) => {
       ...salarySlipData,
       salaryByWorkDays,
       overtimeSalary,
+      nightShiftHours,
       nightShiftDays,
       nightShiftRate,
       nightShiftAllowance,
@@ -1882,9 +1894,17 @@ app.put('/api/salary-slips/:id', async (req, res) => {
     const yearNum = parseInt(yearStr) || new Date().getFullYear();
     const calendarDays = new Date(yearNum, monthNum, 0).getDate();
     
+    const nightShiftHours = parseFloat(salarySlipData.nightShiftHours || 0);
     const nightShiftDays = parseInt(salarySlipData.nightShiftDays || 0);
     const nightShiftRate = Math.floor(parseFloat(salarySlipData.nightShiftRate || 0));
-    const nightShiftAllowance = Math.floor(nightShiftDays * nightShiftRate);
+    
+    let nightShiftAllowance = 0;
+    if (nightShiftHours > 0) {
+      nightShiftAllowance = Math.floor(nightShiftHours * nightShiftRate);
+    } else {
+      nightShiftAllowance = Math.floor(nightShiftDays * nightShiftRate);
+    }
+    
     const dailyRate = Math.floor(employee.grossSalary / calendarDays);
     const salaryByWorkDays = Math.floor(workDays * dailyRate);
     const hourlyOtRate = Math.floor(dailyRate / shiftHours);
@@ -1900,6 +1920,7 @@ app.put('/api/salary-slips/:id', async (req, res) => {
         salaryByWorkDays,
         overtimeHours: otHours,
         overtimeSalary,
+        nightShiftHours,
         nightShiftDays,
         nightShiftRate,
         nightShiftAllowance,
@@ -1928,7 +1949,7 @@ app.put('/api/salary-slips/:id', async (req, res) => {
 
 // Admin Mark Attendance Endpoint (Admin Only)
 app.post('/api/attendance/admin-mark', async (req, res) => {
-  const { employeeId, date, status, checkIn, checkOut, overtimeHours, isNightShift } = req.body;
+  const { employeeId, date, status, checkIn, checkOut, overtimeHours, isNightShift, nightShiftHours } = req.body;
 
   try {
     const employee = await Employee.findById(employeeId);
@@ -1961,6 +1982,7 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
       attendance.checkOut = checkOutDate;
       attendance.overtimeHours = status === 'Present' ? (Number(overtimeHours) || 0) : 0;
       attendance.isNightShift = status === 'Present' ? (Boolean(isNightShift) || false) : false;
+      attendance.nightShiftHours = status === 'Present' ? (Number(nightShiftHours) || 0) : 0;
       await attendance.save();
     } else {
       attendance = new Attendance({
@@ -1970,7 +1992,8 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
         checkIn: checkInDate,
         checkOut: checkOutDate,
         overtimeHours: status === 'Present' ? (Number(overtimeHours) || 0) : 0,
-        isNightShift: status === 'Present' ? (Boolean(isNightShift) || false) : false
+        isNightShift: status === 'Present' ? (Boolean(isNightShift) || false) : false,
+        nightShiftHours: status === 'Present' ? (Number(nightShiftHours) || 0) : 0
       });
       await attendance.save();
     }
@@ -1984,7 +2007,7 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
 
 // Blanket Mark Attendance Endpoint
 app.post('/api/attendance/blanket-mark', async (req, res) => {
-  const { date, status, checkIn, checkOut, overtimeHours, isNightShift } = req.body;
+  const { date, status, checkIn, checkOut, overtimeHours, isNightShift, nightShiftHours } = req.body;
 
   if (!date || !status) {
     return res.status(400).json({ success: false, message: 'Date and Status are required fields.' });
@@ -2023,7 +2046,8 @@ app.post('/api/attendance/blanket-mark', async (req, res) => {
               checkIn: checkInDate,
               checkOut: checkOutDate,
               overtimeHours: status === 'Present' ? (Number(overtimeHours) || 0) : 0,
-              isNightShift: status === 'Present' ? (Boolean(isNightShift) || false) : false
+              isNightShift: status === 'Present' ? (Boolean(isNightShift) || false) : false,
+              nightShiftHours: status === 'Present' ? (Number(nightShiftHours) || 0) : 0
             }
           },
           upsert: true
