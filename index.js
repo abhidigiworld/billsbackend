@@ -467,8 +467,8 @@ const formatDateToISO = (dateStr) => {
   if (!dateStr) return null;
   const cleanStr = dateStr.trim();
   
-  // Try splitting by hyphen or slash
-  const parts = cleanStr.split(/[-\/]/);
+  // Try splitting by hyphen, slash, or dot
+  const parts = cleanStr.split(/[-\/\.]/);
   if (parts.length === 3) {
     // Check if the first part is a 4-digit year (YYYY-MM-DD)
     if (parts[0].length === 4) {
@@ -492,6 +492,14 @@ const formatDateToISO = (dateStr) => {
   }
 
   return null;
+};
+
+// Helper to clean numeric strings with currency symbols and commas
+const cleanNumber = (val) => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return val;
+  const cleaned = String(val).replace(/[₹$]|Rs\.?|INR|,|\s/gi, '');
+  return parseFloat(cleaned) || 0;
 };
 
 // Helper for backend number to words conversion (fallback)
@@ -594,22 +602,12 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
       let grandTotalInWords = '';
       const items = [];
 
-      // Initial check to see if we should call AI fallback
-      const noMatch = cleanText.match(/(?:Invoice\s*No|Bill\s*No)[.:\s]+([A-Za-z0-9-/]+)/i);
-      const grandTotalMatch = cleanText.match(/(?:Grand\s*Total|Total\s*Amount|Total\s*Payable|Total)[.:\s]+(?:₹|Rs)?\s*([\d,]+(?:\.\d+)?)/i);
-      
-      const regexInvoiceNo = noMatch ? noMatch[1].trim() : '';
-      let regexGrandTotal = 0;
-      if (grandTotalMatch) {
-        regexGrandTotal = parseFloat(grandTotalMatch[1].replace(/,/g, '')) || 0;
-      }
-
-      const hasGroqKey = !!process.env.GROQ_API_KEY;
+      const hasGroqKey = process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'your_groq_api_key_here';
       let parsedByAI = false;
 
-      if (hasGroqKey && (!regexInvoiceNo || regexGrandTotal === 0)) {
+      if (hasGroqKey) {
         try {
-          console.log(`[AI Fallback] Parsing ${file.originalname} using Groq AI...`);
+          console.log(`[AI Parsing] Parsing ${file.originalname} using Groq AI...`);
           const maskedText = maskSensitiveData(cleanText);
           const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -640,17 +638,17 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
             const rawContent = aiData.choices[0].message.content.trim();
             const extracted = JSON.parse(rawContent);
 
-            invoiceNo = extracted.invoiceNo || regexInvoiceNo || 'TEMP-' + Math.floor(100 + Math.random() * 900);
+            invoiceNo = extracted.invoiceNo || 'TEMP-' + Math.floor(100 + Math.random() * 900);
             invoiceDate = formatDateToISO(extracted.invoiceDate) || new Date().toISOString().split('T')[0];
             companyName = extracted.companyName || 'Unknown Recipient';
             gstin = (extracted.gstin || '').toUpperCase();
             state = extracted.state || '';
             stateCode = extracted.stateCode || '';
-            freightCharges = parseFloat(extracted.freightCharges) || 0;
-            cgst = parseFloat(extracted.cgst) || 0;
-            sgst = parseFloat(extracted.sgst) || 0;
-            igst = parseFloat(extracted.igst) || 0;
-            grandTotal = parseFloat(extracted.grandTotal) || 0;
+            freightCharges = cleanNumber(extracted.freightCharges);
+            cgst = cleanNumber(extracted.cgst);
+            sgst = cleanNumber(extracted.sgst);
+            igst = cleanNumber(extracted.igst);
+            grandTotal = cleanNumber(extracted.grandTotal);
             grandTotalInWords = extracted.grandTotalInWords || convertNumberToWordsBackend(grandTotal);
 
             if (Array.isArray(extracted.items)) {
@@ -658,32 +656,125 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
                 items.push({
                   description: item.description || 'Service',
                   hsnAsc: item.hsnAsc || '-',
-                  quantity: parseInt(item.quantity) || 1,
-                  rate: parseFloat(item.rate) || 0,
-                  totalValue: parseFloat(item.totalValue) || 0
+                  quantity: cleanNumber(item.quantity) || 1,
+                  rate: cleanNumber(item.rate),
+                  totalValue: cleanNumber(item.totalValue)
                 });
               });
             }
             parsedByAI = true;
-            console.log(`[AI Fallback] Successfully parsed ${file.originalname} via Groq.`);
+            console.log(`[AI Parsing] Successfully parsed ${file.originalname} via Groq.`);
           } else {
-            console.warn('[AI Fallback] Groq API returned non-OK status. Falling back to regex.');
+            console.warn('[AI Parsing] Groq API returned non-OK status. Falling back to regex.');
           }
         } catch (aiErr) {
-          console.error('[AI Fallback] Failed to parse using Groq AI:', aiErr);
+          console.error('[AI Parsing] Failed to parse using Groq AI:', aiErr);
         }
       }
 
       if (!parsedByAI) {
-        // 2. Parse details via Regex
+        // Fallback to robust regex-based extraction
+        console.log(`[Regex Parsing] Parsing ${file.originalname} using regex fallback...`);
+
+        // 1. Recipient Company Name (excluding supplier "Sakshi")
+        let foundCompany = '';
+        const companyPatterns = [
+          /M\/[sS][.:\s]+([^\n]+)/g,
+          /(?:Bill\s+To|Recipient|To)[.:\s]+([^\n]+)/g
+        ];
+        
+        for (const pattern of companyPatterns) {
+          let match;
+          pattern.lastIndex = 0;
+          while ((match = pattern.exec(cleanText)) !== null) {
+            const possibleCompany = match[1].trim();
+            if (possibleCompany && !possibleCompany.toLowerCase().includes('sakshi')) {
+              foundCompany = possibleCompany;
+              break;
+            }
+          }
+          if (foundCompany) break;
+        }
+
+        if (foundCompany) {
+          companyName = foundCompany;
+        } else {
+          const fallbackMatch = cleanText.match(/M\/[sS][.:\s]+([^\n]+)/i) ||
+                                cleanText.match(/(?:Bill\s+To|Recipient|To)[.:\s]+([^\n]+)/i);
+          companyName = fallbackMatch ? fallbackMatch[1].trim() : 'Unknown Recipient';
+        }
+
+        // 2. Define a text slice representing the recipient address block for localized search
+        let recipientBlock = '';
+        if (foundCompany) {
+          const compIdx = cleanText.indexOf(foundCompany);
+          if (compIdx !== -1) {
+            recipientBlock = cleanText.substring(compIdx, compIdx + 400);
+          }
+        }
+
+        // 3. Extract Recipient GSTIN (excluding supplier "07OURPS6573P1ZY")
+        let recipientGstin = '';
+        if (recipientBlock) {
+          const gstinMatch = recipientBlock.match(/GSTIN\s*(?:No)?[.:\s]+([A-Z0-9]{15})/i) ||
+                             recipientBlock.match(/\b\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{3}\b/i);
+          if (gstinMatch) {
+            recipientGstin = gstinMatch[1] ? gstinMatch[1].trim().toUpperCase() : gstinMatch[0].trim().toUpperCase();
+          }
+        }
+        
+        if (!recipientGstin) {
+          const gstinRegex = /\b\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{3}\b/gi;
+          let match;
+          while ((match = gstinRegex.exec(cleanText)) !== null) {
+            const matchVal = match[0].toUpperCase();
+            if (matchVal !== '07OURPS6573P1ZY') {
+              recipientGstin = matchVal;
+              break;
+            }
+          }
+        }
+        
+        if (!recipientGstin) {
+          const fallbackGstin = cleanText.match(/GSTIN\s*(?:No)?[.:\s]+([A-Z0-9]{15})/i);
+          if (fallbackGstin) recipientGstin = fallbackGstin[1].trim().toUpperCase();
+        }
+        
+        gstin = recipientGstin;
+
+        // 4. Recipient State & State Code
+        let recipientState = '';
+        let recipientStateCode = '';
+        
+        if (recipientBlock) {
+          const stateMatch = recipientBlock.match(/State[.:\s]+([a-zA-Z\s]+?)(?=\s*State\s*Code|\n|$)/i);
+          if (stateMatch) recipientState = stateMatch[1].trim();
+          
+          const codeMatch = recipientBlock.match(/(?:State\s*Code|Code)[.:\s]+(\d+)/i);
+          if (codeMatch) recipientStateCode = codeMatch[1].trim();
+        }
+        
+        if (!recipientState) {
+          const stateMatch = cleanText.match(/State[.:\s]+([a-zA-Z\s]+?)(?=\s*State\s*Code|\n|$)/i);
+          if (stateMatch) recipientState = stateMatch[1].trim();
+        }
+        
+        if (!recipientStateCode) {
+          const codeMatch = cleanText.match(/(?:State\s*Code|Code)[.:\s]+(\d+)/i);
+          if (codeMatch) recipientStateCode = codeMatch[1].trim();
+        }
+        
+        state = recipientState;
+        stateCode = recipientStateCode;
+
+        // 5. Invoice Number & Date
+        const noMatch = cleanText.match(/(?:Invoice\s*(?:No|Number)?|Bill\s*(?:No|Number)?)[.:\s]+([A-Za-z0-9\-_/]+)/i);
         if (noMatch) invoiceNo = noMatch[1].trim();
         else {
           invoiceNo = 'TEMP-' + Math.floor(100 + Math.random() * 900);
         }
 
-        // Invoice Date
-        const dateMatch = cleanText.match(/(?:Invoice\s*Date|Date)[.:\s]+([\d-]{10})/i) || 
-                          cleanText.match(/(?:Invoice\s*Date|Date)[.:\s]+([\d-/]{8,10})/i);
+        const dateMatch = cleanText.match(/(?:Invoice\s*Date|Date|Dated)[.:\s]+([\d\-\/.]{8,10})/i);
         if (dateMatch) {
           const rawDate = dateMatch[1].trim();
           invoiceDate = formatDateToISO(rawDate) || new Date().toISOString().split('T')[0];
@@ -691,50 +782,24 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
           invoiceDate = new Date().toISOString().split('T')[0];
         }
 
-        // Recipient Company Name
-        const msMatch = cleanText.match(/M\/s[.:\s]+([^\n]+)/i) || 
-                        cleanText.match(/M\/S[.:\s]+([^\n]+)/i) ||
-                        cleanText.match(/(?:Recipient|Bill\s*To|To)[.:\s]+([^\n]+)/i);
-        if (msMatch) {
-          companyName = msMatch[1].trim();
-        } else {
-          companyName = 'Unknown Recipient';
-        }
+        // 6. Numeric Summary Fields (supporting commas and currency symbols)
+        const amtRegexStr = '(?:[₹$]|Rs\\.?|INR)?\\s*([\\d,]+(?:\\.\\d+)?)';
 
-        // GSTIN
-        const gstinMatch = cleanText.match(/GSTIN\s*(?:No)?[.:\s]+([A-Z0-9]{15})/i) ||
-                           cleanText.match(/GSTIN\s*(?:No)?[.:\s]+(\S+)/i);
-        if (gstinMatch) gstin = gstinMatch[1].trim().toUpperCase();
+        const freightMatch = cleanText.match(new RegExp('(?:Freight\\s*Charges|Freight)[.:\\s]+' + amtRegexStr, 'i'));
+        if (freightMatch) freightCharges = cleanNumber(freightMatch[1]);
 
-        // State & State Code
-        const stateMatch = cleanText.match(/State[.:\s]+([a-zA-Z\s]+?)(?=\s*State\s*Code|\n|$)/i);
-        if (stateMatch) state = stateMatch[1].trim();
+        const cgstMatch = cleanText.match(new RegExp('(?:CGST|Central\\s*GST)\\s*(?:\\(?\\d*%\\)?)?[.:\\s]+' + amtRegexStr, 'i'));
+        if (cgstMatch) cgst = cleanNumber(cgstMatch[1]);
 
-        const codeMatch = cleanText.match(/(?:State\s*Code|Code)[.:\s]+(\d+)/i);
-        if (codeMatch) stateCode = codeMatch[1].trim();
+        const sgstMatch = cleanText.match(new RegExp('(?:SGST|State\\s*GST)\\s*(?:\\(?\\d*%\\)?)?[.:\\s]+' + amtRegexStr, 'i'));
+        if (sgstMatch) sgst = cleanNumber(sgstMatch[1]);
 
-        // Freight
-        const freightMatch = cleanText.match(/(?:Freight\s*Charges|Freight)[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
-        if (freightMatch) freightCharges = parseFloat(freightMatch[1]);
+        const igstMatch = cleanText.match(new RegExp('(?:IGST|Integrated\\s*GST)\\s*(?:\\(?\\d*%\\)?)?[.:\\s]+' + amtRegexStr, 'i'));
+        if (igstMatch) igst = cleanNumber(igstMatch[1]);
 
-        // CGST
-        const cgstMatch = cleanText.match(/(?:CGST|Central\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
-        if (cgstMatch) cgst = parseFloat(cgstMatch[1]);
+        const grandTotalMatch = cleanText.match(new RegExp('(?:Grand\\s*Total|Total\\s*Amount|Total\\s*Payable|Total)[.:\\s]+' + amtRegexStr, 'i'));
+        if (grandTotalMatch) grandTotal = cleanNumber(grandTotalMatch[1]);
 
-        // SGST
-        const sgstMatch = cleanText.match(/(?:SGST|State\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
-        if (sgstMatch) sgst = parseFloat(sgstMatch[1]);
-
-        // IGST
-        const igstMatch = cleanText.match(/(?:IGST|Integrated\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
-        if (igstMatch) igst = parseFloat(igstMatch[1]);
-
-        // Grand Total
-        if (grandTotalMatch) {
-          grandTotal = parseFloat(grandTotalMatch[1].replace(/,/g, '')) || 0;
-        }
-
-        // Grand Total in Words
         const wordsMatch = cleanText.match(/(?:Grand\s*Total|Total\s*Amount)\s*\(?In\s*Words\)?[:.\s]+([^\n]+)/i);
         if (wordsMatch) {
           grandTotalInWords = wordsMatch[1].trim();
@@ -742,10 +807,10 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
           grandTotalInWords = convertNumberToWordsBackend(grandTotal);
         }
 
-        // Parse items list
+        // 7. Parse Items List
         let itemsText = '';
         const tableStartIdx = cleanText.search(/Sl\.?\s*No\.?/i);
-        const tableEndIdx = cleanText.search(/(?:Subtotal|Freight\s*Charges|Freight|Total\s*Amount)/i);
+        const tableEndIdx = cleanText.search(/(?:Subtotal|Freight\s*Charges|Freight|Total\s*Amount|Grand\s*Total)/i);
         
         if (tableStartIdx !== -1 && tableEndIdx !== -1 && tableEndIdx > tableStartIdx) {
           itemsText = cleanText.substring(tableStartIdx, tableEndIdx);
@@ -754,26 +819,37 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
         }
 
         const lines = itemsText.split('\n').map(l => l.trim()).filter(Boolean);
-        
+        const qtyRegexStr = '(?:\\d{1,3}(?:,\\d{3})*|\\d+)(?:\\.\\d+)?';
+        const valRegexStr = '(?:[₹$]|Rs\\.?|INR)?\\s*(?:\\d{1,3}(?:,\\d{3})*|\\d+)(?:\\.\\d+)?';
+
+        const itemRegexWithHsn = new RegExp(
+          '^(?:\\d+[\\s.]*)?(.+?)\\s+(\\S+)\\s+(' + qtyRegexStr + ')\\s+(' + valRegexStr + ')\\s+(' + valRegexStr + ')$',
+          'i'
+        );
+        const itemRegexNoHsn = new RegExp(
+          '^(?:\\d+[\\s.]*)?(.+?)\\s+(' + qtyRegexStr + ')\\s+(' + valRegexStr + ')\\s+(' + valRegexStr + ')$',
+          'i'
+        );
+
         lines.forEach(line => {
-          const match = line.match(/^(?:\d+[\s.]*)?(.+?)\s+(\w+)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
+          const match = line.match(itemRegexWithHsn);
           if (match) {
             const description = match[1].trim();
             const hsnAsc = match[2].trim();
-            const quantity = parseInt(match[3]) || 0;
-            const rate = parseFloat(match[4]) || 0;
-            const totalValue = parseFloat(match[5]) || 0;
+            const quantity = cleanNumber(match[3]);
+            const rate = cleanNumber(match[4]);
+            const totalValue = cleanNumber(match[5]);
             
             if (description.toLowerCase() !== 'description' && hsnAsc.toLowerCase() !== 'hsn/asc') {
               items.push({ description, hsnAsc, quantity, rate, totalValue });
             }
           } else {
-            const matchNoHsn = line.match(/^(?:\d+[\s.]*)?(.+?)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
+            const matchNoHsn = line.match(itemRegexNoHsn);
             if (matchNoHsn) {
               const description = matchNoHsn[1].trim();
-              const quantity = parseInt(matchNoHsn[2]) || 0;
-              const rate = parseFloat(matchNoHsn[3]) || 0;
-              const totalValue = parseFloat(matchNoHsn[4]) || 0;
+              const quantity = cleanNumber(match[2]);
+              const rate = cleanNumber(match[3]);
+              const totalValue = cleanNumber(match[4]);
               if (description.toLowerCase() !== 'description' && description.toLowerCase() !== 'sl.no.') {
                 items.push({ description, hsnAsc: '-', quantity, rate, totalValue });
               }
