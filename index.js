@@ -502,6 +502,74 @@ const cleanNumber = (val) => {
   return parseFloat(cleaned) || 0;
 };
 
+// Generalized helper to split merged items line into HSN, Quantity, and Total Value
+const splitMergedItem = (numStr, subtotal, grandTotal) => {
+  const targetVal = subtotal || grandTotal || 0;
+  
+  let hsnLengths = [8, 6, 4];
+  if (numStr.startsWith('9985')) {
+    hsnLengths = [4, 6, 8];
+  } else if (numStr.startsWith('9983')) {
+    hsnLengths = [4, 6, 8];
+  }
+  
+  for (const hsnLen of hsnLengths) {
+    if (numStr.length > hsnLen) {
+      const hsn = numStr.substring(0, hsnLen);
+      const rest = numStr.substring(hsnLen);
+      
+      for (let qtyLen = 1; qtyLen <= 4 && qtyLen < rest.length; qtyLen++) {
+        const qtyStr = rest.substring(0, qtyLen);
+        const totalStr = rest.substring(qtyLen);
+        
+        const qty = parseInt(qtyStr) || 1;
+        const total = parseFloat(totalStr) || 0;
+        
+        if (total > 0) {
+          if (targetVal > 0 && Math.abs(total - targetVal) < 1) {
+            return { hsn, qty, total };
+          }
+        }
+      }
+    }
+  }
+  
+  // Fallbacks
+  if (numStr.startsWith('9985')) {
+    const hsn = '9985';
+    const rest = numStr.substring(4);
+    if (rest.length >= 7) {
+      const qty = cleanNumber(rest.substring(0, rest.length - 6)) || 1;
+      const total = cleanNumber(rest.substring(rest.length - 6));
+      return { hsn, qty, total };
+    }
+  }
+  
+  if (numStr.startsWith('99') && numStr.length >= 7) {
+    const hsn = numStr.substring(0, 6);
+    const rest = numStr.substring(6);
+    const qty = cleanNumber(rest.substring(0, 1)) || 1;
+    const total = cleanNumber(rest.substring(1));
+    return { hsn, qty, total };
+  }
+  
+  if (numStr.length >= 12) {
+    const hsn = numStr.substring(0, 6);
+    const qty = cleanNumber(numStr.substring(6, 7)) || 1;
+    const total = cleanNumber(numStr.substring(7));
+    return { hsn, qty, total };
+  }
+  
+  if (numStr.length >= 10) {
+    const hsn = numStr.substring(0, 4);
+    const qty = cleanNumber(numStr.substring(4, 5)) || 1;
+    const total = cleanNumber(numStr.substring(5));
+    return { hsn, qty, total };
+  }
+  
+  return { hsn: numStr, qty: 1, total: 0 };
+};
+
 // Helper for backend number to words conversion (fallback)
 const convertNumberToWordsBackend = (number) => {
   if (isNaN(number) || number === null || number === undefined) return '';
@@ -768,15 +836,15 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
         stateCode = recipientStateCode;
 
         // 5. Invoice Number & Date
-        const noMatch = cleanText.match(/(?:Invoice\s*(?:No|Number)?|Bill\s*(?:No|Number)?)[.:\s]+([A-Za-z0-9\-_/]+)/i);
+        const noMatch = cleanText.match(/(?:Invoice\s*(?:No|Number)|Bill\s*(?:No|Number))[.:\s]+([A-Za-z0-9\-_/]+)/i);
         if (noMatch) invoiceNo = noMatch[1].trim();
         else {
           invoiceNo = 'TEMP-' + Math.floor(100 + Math.random() * 900);
         }
 
-        const dateMatch = cleanText.match(/(?:Invoice\s*Date|Date|Dated)[.:\s]+([\d\-\/.]{8,10})/i);
+        const dateMatch = cleanText.match(/(?:Invoice\s*Date|Date|Dated)[.:\s]+([\d\-\/.\s]{8,15})/i);
         if (dateMatch) {
-          const rawDate = dateMatch[1].trim();
+          const rawDate = dateMatch[1].replace(/\s/g, '');
           invoiceDate = formatDateToISO(rawDate) || new Date().toISOString().split('T')[0];
         } else {
           invoiceDate = new Date().toISOString().split('T')[0];
@@ -788,16 +856,16 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
         const freightMatch = cleanText.match(new RegExp('(?:Freight\\s*Charges|Freight)[.:\\s]+' + amtRegexStr, 'i'));
         if (freightMatch) freightCharges = cleanNumber(freightMatch[1]);
 
-        const cgstMatch = cleanText.match(new RegExp('(?:CGST|Central\\s*GST)\\s*(?:\\(?\\d*%\\)?)?[.:\\s]+' + amtRegexStr, 'i'));
+        const cgstMatch = cleanText.match(new RegExp('(?:CGST|Central\\s*GST)[.:\\s]+(?:\\d+\\s*%\\s*)?(?:[₹$]|Rs\\.?|INR)?\\s*([\\d,]+(?:\\.\\d+)?)', 'i'));
         if (cgstMatch) cgst = cleanNumber(cgstMatch[1]);
 
-        const sgstMatch = cleanText.match(new RegExp('(?:SGST|State\\s*GST)\\s*(?:\\(?\\d*%\\)?)?[.:\\s]+' + amtRegexStr, 'i'));
+        const sgstMatch = cleanText.match(new RegExp('(?:SGST|State\\s*GST)[.:\\s]+(?:\\d+\\s*%\\s*)?(?:[₹$]|Rs\\.?|INR)?\\s*([\\d,]+(?:\\.\\d+)?)', 'i'));
         if (sgstMatch) sgst = cleanNumber(sgstMatch[1]);
 
-        const igstMatch = cleanText.match(new RegExp('(?:IGST|Integrated\\s*GST)\\s*(?:\\(?\\d*%\\)?)?[.:\\s]+' + amtRegexStr, 'i'));
+        const igstMatch = cleanText.match(new RegExp('(?:IGST|Integrated\\s*GST)[.:\\s]+(?:\\d+\\s*%\\s*)?(?:[₹$]|Rs\\.?|INR)?\\s*([\\d,]+(?:\\.\\d+)?)', 'i'));
         if (igstMatch) igst = cleanNumber(igstMatch[1]);
 
-        const grandTotalMatch = cleanText.match(new RegExp('(?:Grand\\s*Total|Total\\s*Amount|Total\\s*Payable|Total)[.:\\s]+' + amtRegexStr, 'i'));
+        const grandTotalMatch = cleanText.match(new RegExp('\\b(?:Grand\\s*Total|Total\\s*Amount|Total\\s*Payable)\\b[.:\\s]+(?:[₹$]|Rs\\.?|INR)?\\s*([\\d,]+(?:\\.\\d+)?)', 'i'));
         if (grandTotalMatch) grandTotal = cleanNumber(grandTotalMatch[1]);
 
         const wordsMatch = cleanText.match(/(?:Grand\s*Total|Total\s*Amount)\s*\(?In\s*Words\)?[:.\s]+([^\n]+)/i);
@@ -807,10 +875,10 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
           grandTotalInWords = convertNumberToWordsBackend(grandTotal);
         }
 
-        // 7. Parse Items List
+        // 7. Stateful Items List Parser
         let itemsText = '';
-        const tableStartIdx = cleanText.search(/Sl\.?\s*No\.?/i);
-        const tableEndIdx = cleanText.search(/(?:Subtotal|Freight\s*Charges|Freight|Total\s*Amount|Grand\s*Total)/i);
+        const tableStartIdx = cleanText.search(/\bS[l\.]?\s*No\.?/i);
+        const tableEndIdx = cleanText.search(/(?:Subtotal|Freight|CGST|SGST|IGST|Total\s*Amount|Grand\s*Total)/i);
         
         if (tableStartIdx !== -1 && tableEndIdx !== -1 && tableEndIdx > tableStartIdx) {
           itemsText = cleanText.substring(tableStartIdx, tableEndIdx);
@@ -819,45 +887,88 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
         }
 
         const lines = itemsText.split('\n').map(l => l.trim()).filter(Boolean);
-        const qtyRegexStr = '(?:\\d{1,3}(?:,\\d{3})*|\\d+)(?:\\.\\d+)?';
-        const valRegexStr = '(?:[₹$]|Rs\\.?|INR)?\\s*(?:\\d{1,3}(?:,\\d{3})*|\\d+)(?:\\.\\d+)?';
-
-        const itemRegexWithHsn = new RegExp(
-          '^(?:\\d+[\\s.]*)?(.+?)\\s+(\\S+)\\s+(' + qtyRegexStr + ')\\s+(' + valRegexStr + ')\\s+(' + valRegexStr + ')$',
-          'i'
-        );
-        const itemRegexNoHsn = new RegExp(
-          '^(?:\\d+[\\s.]*)?(.+?)\\s+(' + qtyRegexStr + ')\\s+(' + valRegexStr + ')\\s+(' + valRegexStr + ')$',
-          'i'
-        );
-
+        
+        let currentItem = null;
         lines.forEach(line => {
-          const match = line.match(itemRegexWithHsn);
-          if (match) {
-            const description = match[1].trim();
-            const hsnAsc = match[2].trim();
-            const quantity = cleanNumber(match[3]);
-            const rate = cleanNumber(match[4]);
-            const totalValue = cleanNumber(match[5]);
-            
-            if (description.toLowerCase() !== 'description' && hsnAsc.toLowerCase() !== 'hsn/asc') {
-              items.push({ description, hsnAsc, quantity, rate, totalValue });
+          const trimmed = line.trim();
+          if (!trimmed) return;
+          
+          // Serial number check
+          const serMatch = trimmed.match(/^(\d+)[\s.]*$/);
+          if (serMatch) {
+            const sNo = parseInt(serMatch[1]);
+            if (sNo > 0 && sNo < 50) {
+              if (currentItem) items.push(currentItem);
+              currentItem = {
+                description: '',
+                hsnAsc: '-',
+                quantity: 1,
+                rate: 0,
+                totalValue: 0
+              };
+              return;
+            }
+          }
+          
+          const qtyRegexStr = '(?:\\d{1,3}(?:,\\d{3})*|\\d+)(?:\\.\\d+)?';
+          const valRegexStr = '(?:[₹$]|Rs\\.?|INR)?\\s*(?:\\d{1,3}(?:,\\d{3})*|\\d+)(?:\\.\\d+)?';
+          
+          const fullMatch = trimmed.match(new RegExp(`^(\\S+)\\s+(${qtyRegexStr})\\s+(${valRegexStr})\\s+(${valRegexStr})$`)) ||
+                            trimmed.match(new RegExp(`^(.+?)\\s+(\\S+)\\s+(${qtyRegexStr})\\s+(${valRegexStr})\\s+(${valRegexStr})$`));
+          const mergedMatch = trimmed.match(/^(\d+)$/);
+
+          if (currentItem) {
+            if (fullMatch) {
+              if (fullMatch.length === 5) {
+                currentItem.hsnAsc = fullMatch[1].trim();
+                currentItem.quantity = cleanNumber(fullMatch[2]);
+                currentItem.rate = cleanNumber(fullMatch[3]);
+                currentItem.totalValue = cleanNumber(fullMatch[4]);
+              } else if (fullMatch.length === 6) {
+                currentItem.description = (currentItem.description + ' ' + fullMatch[1]).trim();
+                currentItem.hsnAsc = fullMatch[2].trim();
+                currentItem.quantity = cleanNumber(fullMatch[3]);
+                currentItem.rate = cleanNumber(fullMatch[4]);
+                currentItem.totalValue = cleanNumber(fullMatch[5]);
+              }
+              items.push(currentItem);
+              currentItem = null;
+            } else if (mergedMatch) {
+              const numStr = mergedMatch[1];
+              let guessSubtotal = grandTotal / 1.18;
+              const res = splitMergedItem(numStr, guessSubtotal, grandTotal);
+              
+              currentItem.hsnAsc = res.hsn;
+              currentItem.quantity = res.qty;
+              currentItem.totalValue = res.total;
+              currentItem.rate = currentItem.quantity > 0 ? currentItem.totalValue / currentItem.quantity : currentItem.totalValue;
+              
+              items.push(currentItem);
+              currentItem = null;
+            } else {
+              const lower = trimmed.toLowerCase();
+              if (lower !== 'description' && lower !== 'hsn/sac' && lower !== 'code' && lower !== 'quantityrate' && lower !== 'total' && lower !== 'value') {
+                currentItem.description = (currentItem.description + ' ' + trimmed).trim();
+              }
             }
           } else {
-            const matchNoHsn = line.match(itemRegexNoHsn);
-            if (matchNoHsn) {
-              const description = matchNoHsn[1].trim();
-              const quantity = cleanNumber(match[2]);
-              const rate = cleanNumber(match[3]);
-              const totalValue = cleanNumber(match[4]);
-              if (description.toLowerCase() !== 'description' && description.toLowerCase() !== 'sl.no.') {
-                items.push({ description, hsnAsc: '-', quantity, rate, totalValue });
-              }
+            if (fullMatch) {
+              const newItem = {
+                description: fullMatch.length === 6 ? fullMatch[1].trim() : 'Service',
+                hsnAsc: fullMatch.length === 6 ? fullMatch[2].trim() : fullMatch[1].trim(),
+                quantity: cleanNumber(fullMatch[fullMatch.length - 3]),
+                rate: cleanNumber(fullMatch[fullMatch.length - 2]),
+                totalValue: cleanNumber(fullMatch[fullMatch.length - 1])
+              };
+              items.push(newItem);
             }
           }
         });
+        
+        if (currentItem && currentItem.description) {
+          items.push(currentItem);
+        }
 
-        // Default item if none was parsed
         if (items.length === 0) {
           items.push({
             description: 'Sales of Services',
@@ -989,8 +1100,8 @@ function maskSensitiveData(text) {
   if (!text) return '';
   let masked = text;
   
-  // 1. Bank Account numbers (typically 9-18 digits)
-  masked = masked.replace(/\b\d{9,18}\b/g, ' [REDACTED_ACCOUNT] ');
+  // 1. Bank Account numbers (typically 9-18 digits, preceded by bank keywords)
+  masked = masked.replace(/(?:A\/c|Account|A\/C|Acc)(?:[\s.]*(?:No|Number|#))?[\s.:]*\b(\d{9,18})\b/gi, (match, p1) => match.replace(p1, ' [REDACTED_ACCOUNT] '));
   
   // 2. Indian Financial System Code (IFSC) (e.g. SBIN0001234)
   masked = masked.replace(/\b[A-Za-z]{4}0[A-Za-z0-9]{6}\b/g, ' [REDACTED_IFSC] ');
@@ -998,11 +1109,14 @@ function maskSensitiveData(text) {
   // 3. Indian Permanent Account Number (PAN) (e.g. ABCDE1234F)
   masked = masked.replace(/\b[A-Za-z]{5}\d{4}[A-Za-z]\b/g, ' [REDACTED_PAN] ');
   
-  // 4. Phone numbers (10 digit mobile, optionally with country code)
-  masked = masked.replace(/(?:\+91[\-\s]?)?[6-9]\d{9}\b/g, ' [REDACTED_PHONE] ');
+  // 4. Phone numbers (10 digit mobile, preceded by keywords or with country code)
+  masked = masked.replace(/(?:(?:Mob|Mobile|Tel|Phone|Contact|M\.|Ph)[.:\s]*|\+91[\-\s]?)\b([6-9]\d{9})\b/gi, (match, p1) => match.replace(p1, ' [REDACTED_PHONE] '));
   
-  // 5. Aadhaar card numbers (12 digits, often formatted as 4-4-4)
-  masked = masked.replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, ' [REDACTED_AADHAAR] ');
+  // 5. Aadhaar card numbers (12 digits, preceded by Aadhaar/UID or formatted with separators)
+  masked = masked.replace(/(?:Aadhaar|Aadhar|UID)[.:\s]*\b(\d{4}[\s-]?\d{4}[\s-]?\d{4})\b|\b(\d{4}[\s-]\d{4}[\s-]\d{4})\b/gi, (match, p1, p2) => {
+    const val = p1 || p2;
+    return match.replace(val, ' [REDACTED_AADHAAR] ');
+  });
 
   return masked;
 }
