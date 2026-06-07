@@ -1217,7 +1217,7 @@ const SalarySlip = mongoose.model('SalarySlip', salarySlipSchema);
 // Route to get all salary slips
 app.get('/api/salary-slips', async (req, res) => {
   try {
-    const salarySlips = await SalarySlip.find().populate('employeeId', 'name');
+    const salarySlips = await SalarySlip.find().populate('employeeId', 'name designation grossSalary dateOfJoining');
     res.json(salarySlips);
   } catch (error) {
     console.error('Error fetching salary slips:', error);
@@ -1372,7 +1372,7 @@ app.get('/api/salary-slips/my-slips', async (req, res) => {
       return res.status(200).json([]);
     }
 
-    const salarySlips = await SalarySlip.find({ employeeId: employee._id }).populate('employeeId', 'name');
+    const salarySlips = await SalarySlip.find({ employeeId: employee._id }).populate('employeeId', 'name designation grossSalary dateOfJoining');
     res.status(200).json(salarySlips);
   } catch (error) {
     console.error('Error fetching salary slips:', error);
