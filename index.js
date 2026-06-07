@@ -957,6 +957,70 @@ const aiRateLimiter = (req, res, next) => {
   next();
 };
 
+// Check if user prompt is querying database statistics
+const isDatabaseQuery = (messages) => {
+  if (!messages || messages.length === 0) return false;
+  const lastMessage = messages[messages.length - 1].content.toLowerCase();
+  const keywords = [
+    'invoice', 'bill', 'sale', 'earning', 'employee', 'staff', 'worker', 
+    'attendance', 'payroll', 'salary', 'how many', 'total', 'summary', 
+    'report', 'statistic', 'metrics', 'analytics'
+  ];
+  return keywords.some(keyword => lastMessage.includes(keyword));
+};
+
+// Fetch real-time aggregated database metadata securely
+const getDatabaseSummaryMetadata = async () => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Invoices count and sales total
+    const totalInvoices = await Invoice.countDocuments({});
+    const salesAggregate = await Invoice.aggregate([
+      { $group: { _id: null, total: { $sum: '$grandTotal' } } }
+    ]);
+    const totalSales = salesAggregate[0]?.total || 0;
+
+    // Last 6 months sales breakdown
+    const monthlySales = await Invoice.aggregate([
+      {
+        $group: {
+          _id: { $substr: ['$invoiceDate', 0, 7] }, // YYYY-MM
+          total: { $sum: '$grandTotal' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: -1 } },
+      { $limit: 6 }
+    ]);
+
+    // Employee counts
+    const totalEmployees = await Employee.countDocuments({});
+    const activeEmployees = await Employee.countDocuments({ status: 'Active' });
+
+    // Today's attendance counts
+    const attendancePresent = await Attendance.countDocuments({ date: today, status: 'Present' });
+    const attendanceAbsent = await Attendance.countDocuments({ date: today, status: 'Absent' });
+    const attendanceLeave = await Attendance.countDocuments({ date: today, status: 'Leave' });
+
+    // Build the anonymized summary context string
+    let summary = `Current System Database Summary (Real-time aggregates as of ${today}):\n`;
+    summary += `- Total Invoices: ${totalInvoices}\n`;
+    summary += `- Total Sales Amount: ₹${totalSales.toLocaleString('en-IN')}\n`;
+    summary += `- Monthly Sales Breakdown (Last 6 Months):\n`;
+    monthlySales.forEach(m => {
+      summary += `  * Month ${m._id}: ${m.count} Invoices, Total: ₹${m.total.toLocaleString('en-IN')}\n`;
+    });
+    summary += `- Total Employees: ${totalEmployees} (${activeEmployees} Active)\n`;
+    summary += `- Today's Attendance stats (${today}): ${attendancePresent} Present, ${attendanceAbsent} Absent, ${attendanceLeave} Leave\n`;
+
+    return summary;
+  } catch (error) {
+    console.error('Error fetching database summary metadata:', error);
+    return 'Database summary metadata could not be fetched due to an internal error.';
+  }
+};
+
 // AI Chat Copilot endpoint
 app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
   const { messages } = req.body;
@@ -988,9 +1052,19 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
     content: maskSensitiveData(msg.content)
   }));
 
+  // Base system instructions
+  let systemPromptText = 'You are Sakshi AI, a secure corporate billing and payroll assistant for Sakshi Enterprises. You help users draft emails (e.g. invoice sending, payment reminders, salary slip notices), explain billing and Indian taxation concepts (CGST, SGST, IGST, HSN codes), and guide them on how to navigate this invoice and payroll system. For security, never ask for or process passwords, bank credentials, or private personal identifiers. Be concise, polite, and professional.';
+
+  // Inject real-time MongoDB context if user asks about data analytics/records
+  if (isDatabaseQuery(capMessages)) {
+    console.log('[AI Chat] Analytics query detected. Fetching secure MongoDB aggregate metadata...');
+    const dbSummary = await getDatabaseSummaryMetadata();
+    systemPromptText += `\n\nReal-time database context for answering user questions:\n${dbSummary}`;
+  }
+
   const systemPrompt = {
     role: 'system',
-    content: 'You are Sakshi AI, a secure corporate billing and payroll assistant for Sakshi Enterprises. You help users draft emails (e.g. invoice sending, payment reminders, salary slip notices), explain billing and Indian taxation concepts (CGST, SGST, IGST, HSN codes), and guide them on how to navigate this invoice and payroll system. For security, never ask for or process passwords, bank credentials, or private personal identifiers. Be concise, polite, and professional.'
+    content: systemPromptText
   };
 
   try {
