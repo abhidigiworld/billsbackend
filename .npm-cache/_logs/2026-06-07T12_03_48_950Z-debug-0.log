@@ -1,0 +1,450 @@
+0 verbose cli /usr/local/bin/node /usr/local/bin/npm
+1 info using npm@11.12.1
+2 info using node@v24.15.0
+3 silly config load:file:/usr/local/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/abhishek/Documents/Bills/billsbackend/.npmrc
+5 silly config load:file:/Users/abhishek/.npmrc
+6 silly config load:file:/usr/local/etc/npmrc
+7 verbose title npm install pdf-parse@1.1.1
+8 verbose argv "install" "pdf-parse@1.1.1" "--cache" "./.npm-cache"
+9 verbose logfile logs-max:10 dir:/Users/abhishek/Documents/Bills/billsbackend/.npm-cache/_logs/2026-06-07T12_03_48_950Z-
+10 verbose logfile /Users/abhishek/Documents/Bills/billsbackend/.npm-cache/_logs/2026-06-07T12_03_48_950Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4496293888 maxSize:1124073472 maxEntrySize:562036736
+13 verbose shrinkwrap failed to load node_modules/.package-lock.json out of date, updated: node_modules
+14 silly idealTree buildDeps
+15 silly fetch manifest pdf-parse@1.1.1
+16 silly packumentCache full:https://registry.npmjs.org/pdf-parse cache-miss
+17 http fetch GET 200 https://registry.npmjs.org/pdf-parse 476ms (cache revalidated)
+18 silly packumentCache full:https://registry.npmjs.org/pdf-parse set size:182111 disposed:false
+19 silly placeDep ROOT pdf-parse@1.1.1 REPLACE for: backend@1.0.0 want: 1.1.1
+20 silly fetch manifest debug@^3.1.0
+21 silly packumentCache full:https://registry.npmjs.org/debug cache-miss
+22 silly fetch manifest node-ensure@^0.0.0
+23 silly packumentCache full:https://registry.npmjs.org/node-ensure cache-miss
+24 http cache https://registry.npmjs.org/node-ensure 2ms (cache hit)
+25 silly packumentCache full:https://registry.npmjs.org/node-ensure set size:4726 disposed:false
+26 http cache https://registry.npmjs.org/debug 2ms (cache hit)
+27 silly packumentCache full:https://registry.npmjs.org/debug set size:195840 disposed:false
+28 silly placeDep node_modules/pdf-parse debug@3.2.7 OK for: pdf-parse@1.1.1 want: ^3.1.0
+29 silly placeDep ROOT node-ensure@0.0.0 OK for: pdf-parse@1.1.1 want: ^0.0.0
+30 silly fetch manifest ms@^2.1.1
+31 silly packumentCache full:https://registry.npmjs.org/ms cache-miss
+32 http cache https://registry.npmjs.org/ms 1ms (cache hit)
+33 silly packumentCache full:https://registry.npmjs.org/ms set size:92208 disposed:false
+34 silly placeDep node_modules/pdf-parse ms@2.1.3 OK for: debug@3.2.7 want: ^2.1.1
+35 silly reify mark retired [
+35 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/node-ensure'
+35 silly reify ]
+36 silly reify mark retired [
+36 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/pdf-parse',
+36 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/.bin/pdf-parse'
+36 silly reify ]
+37 silly reify mark retired [
+37 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/pdfjs-dist'
+37 silly reify ]
+38 silly reify mark retired [
+38 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/@napi-rs/canvas'
+38 silly reify ]
+39 silly reify mark retired [
+39 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/@napi-rs/canvas-darwin-arm64'
+39 silly reify ]
+40 silly reify moves {
+40 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/node-ensure': '/Users/abhishek/Documents/Bills/billsbackend/node_modules/.node-ensure-oLgVbSfH',
+40 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/pdf-parse': '/Users/abhishek/Documents/Bills/billsbackend/node_modules/.pdf-parse-tjuLx732',
+40 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/.bin/pdf-parse': '/Users/abhishek/Documents/Bills/billsbackend/node_modules/.bin/.pdf-parse-YJXlLY0m',
+40 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/pdfjs-dist': '/Users/abhishek/Documents/Bills/billsbackend/node_modules/.pdfjs-dist-CLu1riCl',
+40 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/@napi-rs/canvas': '/Users/abhishek/Documents/Bills/billsbackend/node_modules/@napi-rs/.canvas-q8OEX6Wj',
+40 silly reify   '/Users/abhishek/Documents/Bills/billsbackend/node_modules/@napi-rs/canvas-darwin-arm64': '/Users/abhishek/Documents/Bills/billsbackend/node_modules/@napi-rs/.canvas-darwin-arm64-Y27yiCly'
+40 silly reify }
+41 silly audit bulk request {
+41 silly audit   '@mongodb-js/saslprep': [ '1.1.7' ],
+41 silly audit   '@types/webidl-conversions': [ '7.0.3' ],
+41 silly audit   '@types/whatwg-url': [ '11.0.5' ],
+41 silly audit   accepts: [ '1.3.8' ],
+41 silly audit   anymatch: [ '3.1.3' ],
+41 silly audit   'append-field': [ '1.0.0' ],
+41 silly audit   'array-flatten': [ '1.1.1' ],
+41 silly audit   'balanced-match': [ '1.0.2' ],
+41 silly audit   bcryptjs: [ '3.0.3' ],
+41 silly audit   'binary-extensions': [ '2.3.0' ],
+41 silly audit   'body-parser': [ '1.20.2' ],
+41 silly audit   'brace-expansion': [ '1.1.11' ],
+41 silly audit   braces: [ '3.0.3' ],
+41 silly audit   bson: [ '6.7.0' ],
+41 silly audit   'buffer-from': [ '1.1.2' ],
+41 silly audit   busboy: [ '1.6.0' ],
+41 silly audit   bytes: [ '3.1.2' ],
+41 silly audit   'call-bind': [ '1.0.7' ],
+41 silly audit   chokidar: [ '3.6.0' ],
+41 silly audit   'concat-map': [ '0.0.1' ],
+41 silly audit   'concat-stream': [ '2.0.0' ],
+41 silly audit   'content-disposition': [ '0.5.4' ],
+41 silly audit   'content-type': [ '1.0.5' ],
+41 silly audit   cookie: [ '0.6.0' ],
+41 silly audit   'cookie-signature': [ '1.0.6' ],
+41 silly audit   cors: [ '2.8.5' ],
+41 silly audit   debug: [ '2.6.9', '4.3.4', '4.3.7', '3.2.7' ],
+41 silly audit   'define-data-property': [ '1.1.4' ],
+41 silly audit   depd: [ '2.0.0' ],
+41 silly audit   destroy: [ '1.2.0' ],
+41 silly audit   dotenv: [ '17.4.2' ],
+41 silly audit   'ee-first': [ '1.1.1' ],
+41 silly audit   encodeurl: [ '1.0.2' ],
+41 silly audit   'es-define-property': [ '1.0.0' ],
+41 silly audit   'es-errors': [ '1.3.0' ],
+41 silly audit   'escape-html': [ '1.0.3' ],
+41 silly audit   etag: [ '1.8.1' ],
+41 silly audit   express: [ '4.19.2' ],
+41 silly audit   'fill-range': [ '7.1.1' ],
+41 silly audit   finalhandler: [ '1.2.0' ],
+41 silly audit   forwarded: [ '0.2.0' ],
+41 silly audit   fresh: [ '0.5.2' ],
+41 silly audit   fsevents: [ '2.3.3' ],
+41 silly audit   'function-bind': [ '1.1.2' ],
+41 silly audit   'get-intrinsic': [ '1.2.4' ],
+41 silly audit   'glob-parent': [ '5.1.2' ],
+41 silly audit   gopd: [ '1.0.1' ],
+41 silly audit   'has-flag': [ '3.0.0' ],
+41 silly audit   'has-property-descriptors': [ '1.0.2' ],
+41 silly audit   'has-proto': [ '1.0.3' ],
+41 silly audit   'has-symbols': [ '1.0.3' ],
+41 silly audit   hasown: [ '2.0.2' ],
+41 silly audit   'http-errors': [ '2.0.0' ],
+41 silly audit   'iconv-lite': [ '0.4.24' ],
+41 silly audit   'ignore-by-default': [ '1.0.1' ],
+41 silly audit   inherits: [ '2.0.4' ],
+41 silly audit   'ipaddr.js': [ '1.9.1' ],
+41 silly audit   'is-binary-path': [ '2.1.0' ],
+41 silly audit   'is-extglob': [ '2.1.1' ],
+41 silly audit   'is-glob': [ '4.0.3' ],
+41 silly audit   'is-number': [ '7.0.0' ],
+41 silly audit   kareem: [ '2.6.3' ],
+41 silly audit   'media-typer': [ '0.3.0' ],
+41 silly audit   'memory-pager': [ '1.5.0' ],
+41 silly audit   'merge-descriptors': [ '1.0.1' ],
+41 silly audit   methods: [ '1.1.2' ],
+41 silly audit   mime: [ '1.6.0' ],
+41 silly audit   'mime-db': [ '1.52.0' ],
+41 silly audit   'mime-types': [ '2.1.35' ],
+41 silly audit   minimatch: [ '3.1.2' ],
+41 silly audit   mongodb: [ '6.6.2' ],
+41 silly audit   'mongodb-connection-string-url': [ '3.0.1' ],
+41 silly audit   mongoose: [ '8.4.0' ],
+41 silly audit   ms: [ '2.1.3', '2.1.2', '2.0.0' ],
+41 silly audit   mpath: [ '0.9.0' ],
+41 silly audit   mquery: [ '5.0.0' ],
+41 silly audit   multer: [ '2.1.1' ],
+41 silly audit   negotiator: [ '0.6.3' ],
+41 silly audit   nodemailer: [ '8.0.10' ],
+41 silly audit   nodemon: [ '3.1.7' ],
+41 silly audit   'normalize-path': [ '3.0.0' ],
+41 silly audit   'object-assign': [ '4.1.1' ],
+41 silly audit   'object-inspect': [ '1.13.1' ],
+41 silly audit   'on-finished': [ '2.4.1' ],
+41 silly audit   parseurl: [ '1.3.3' ],
+41 silly audit   'path-to-regexp': [ '0.1.7' ],
+41 silly audit   picomatch: [ '2.3.1' ],
+41 silly audit   'proxy-addr': [ '2.0.7' ],
+41 silly audit   'pstree.remy': [ '1.1.8' ],
+41 silly audit   punycode: [ '2.3.1' ],
+41 silly audit   qs: [ '6.11.0' ],
+41 silly audit   'range-parser': [ '1.2.1' ],
+41 silly audit   'raw-body': [ '2.5.2' ],
+41 silly audit   'readable-stream': [ '3.6.2' ],
+41 silly audit   readdirp: [ '3.6.0' ],
+41 silly audit   'safe-buffer': [ '5.2.1' ],
+41 silly audit   'safer-buffer': [ '2.1.2' ],
+41 silly audit   semver: [ '7.6.3' ],
+41 silly audit   send: [ '0.18.0' ],
+41 silly audit   'serve-static': [ '1.15.0' ],
+41 silly audit   'set-function-length': [ '1.2.2' ],
+41 silly audit   setprototypeof: [ '1.2.0' ],
+41 silly audit   'side-channel': [ '1.0.6' ],
+41 silly audit   sift: [ '17.1.3' ],
+41 silly audit   'simple-update-notifier': [ '2.0.0' ],
+41 silly audit   'sparse-bitfield': [ '3.0.3' ],
+41 silly audit   statuses: [ '2.0.1' ],
+41 silly audit   streamsearch: [ '1.1.0' ],
+41 silly audit   string_decoder: [ '1.3.0' ],
+41 silly audit   'supports-color': [ '5.5.0' ],
+41 silly audit   'to-regex-range': [ '5.0.1' ],
+41 silly audit   toidentifier: [ '1.0.1' ],
+41 silly audit   touch: [ '3.1.1' ],
+41 silly audit   tr46: [ '4.1.1' ],
+41 silly audit   'type-is': [ '1.6.18' ],
+41 silly audit   typedarray: [ '0.0.6' ],
+41 silly audit   undefsafe: [ '2.0.5' ],
+41 silly audit   unpipe: [ '1.0.0' ],
+41 silly audit   'util-deprecate': [ '1.0.2' ],
+41 silly audit   'utils-merge': [ '1.0.1' ],
+41 silly audit   vary: [ '1.1.2' ],
+41 silly audit   'webidl-conversions': [ '7.0.0' ],
+41 silly audit   'whatwg-url': [ '13.0.0' ],
+41 silly audit   'pdf-parse': [ '1.1.1' ],
+41 silly audit   'node-ensure': [ '0.0.0' ]
+41 silly audit }
+42 http cache pdf-parse@https://registry.npmjs.org/pdf-parse/-/pdf-parse-1.1.1.tgz 0ms (cache hit)
+43 http cache node-ensure@https://registry.npmjs.org/node-ensure/-/node-ensure-0.0.0.tgz 0ms (cache hit)
+44 http cache ms@https://registry.npmjs.org/ms/-/ms-2.1.3.tgz 0ms (cache hit)
+45 http cache debug@https://registry.npmjs.org/debug/-/debug-3.2.7.tgz 0ms (cache hit)
+46 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 303ms
+47 silly audit report {
+47 silly audit report   'body-parser': [
+47 silly audit report     {
+47 silly audit report       id: 1099520,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-qwcr-r2fm-qrc7',
+47 silly audit report       title: 'body-parser vulnerable to denial of service when url encoding is enabled',
+47 silly audit report       severity: 'high',
+47 silly audit report       vulnerable_versions: '<1.20.3',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ],
+47 silly audit report   'brace-expansion': [
+47 silly audit report     {
+47 silly audit report       id: 1105443,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-v6h2-p8h4-qcjw',
+47 silly audit report       title: 'brace-expansion Regular Expression Denial of Service vulnerability',
+47 silly audit report       severity: 'low',
+47 silly audit report       vulnerable_versions: '>=1.0.0 <=1.1.11',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     },
+47 silly audit report     {
+47 silly audit report       id: 1115540,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-f886-m6hf-6m8v',
+47 silly audit report       title: 'brace-expansion: Zero-step sequence causes process hang and memory exhaustion',
+47 silly audit report       severity: 'moderate',
+47 silly audit report       vulnerable_versions: '<1.1.13',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ],
+47 silly audit report   cookie: [
+47 silly audit report     {
+47 silly audit report       id: 1103907,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-pxg6-pf52-xh8x',
+47 silly audit report       title: 'cookie accepts cookie name, path, and domain with out of bounds characters',
+47 silly audit report       severity: 'low',
+47 silly audit report       vulnerable_versions: '<0.7.0',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ],
+47 silly audit report   express: [
+47 silly audit report     {
+47 silly audit report       id: 1100530,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-qw6h-vgh9-j6wx',
+47 silly audit report       title: 'express vulnerable to XSS via response.redirect()',
+47 silly audit report       severity: 'low',
+47 silly audit report       vulnerable_versions: '<4.20.0',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ],
+47 silly audit report   minimatch: [
+47 silly audit report     {
+47 silly audit report       id: 1113459,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-3ppc-4f35-3m26',
+47 silly audit report       title: 'minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern',
+47 silly audit report       severity: 'high',
+47 silly audit report       vulnerable_versions: '<3.1.3',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     },
+47 silly audit report     {
+47 silly audit report       id: 1113538,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-7r86-cg39-jmmj',
+47 silly audit report       title: 'minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments',
+47 silly audit report       severity: 'high',
+47 silly audit report       vulnerable_versions: '<3.1.3',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     },
+47 silly audit report     {
+47 silly audit report       id: 1113546,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-23c5-xmqv-rm74',
+47 silly audit report       title: 'minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions',
+47 silly audit report       severity: 'high',
+47 silly audit report       vulnerable_versions: '<3.1.4',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ],
+47 silly audit report   mongoose: [
+47 silly audit report     {
+47 silly audit report       id: 1118997,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-wpg9-53fq-2r8h',
+47 silly audit report       title: "Mongoose's Improper Sanitization of $nor in sanitizeFilter May Allow NoSQL Injection",
+47 silly audit report       severity: 'high',
+47 silly audit report       vulnerable_versions: '>=8.0.0 <=8.22.0',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     },
+47 silly audit report     {
+47 silly audit report       id: 1112942,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-m7xq-9374-9rvx',
+47 silly audit report       title: 'Mongoose search injection vulnerability',
+47 silly audit report       severity: 'high',
+47 silly audit report       vulnerable_versions: '>=8.0.0-rc0 <8.8.3',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     },
+47 silly audit report     {
+47 silly audit report       id: 1117406,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-vg7j-7cwx-8wgw',
+47 silly audit report       title: 'Mongoose search injection vulnerability',
+47 silly audit report       severity: 'critical',
+47 silly audit report       vulnerable_versions: '>=8.0.0-rc0 <8.9.5',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ],
+47 silly audit report   'path-to-regexp': [
+47 silly audit report     {
+47 silly audit report       id: 1101850,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-9wv6-86v2-598j',
+47 silly audit report       title: 'path-to-regexp outputs backtracking regular expressions',
+47 silly audit report       severity: 'high',
+47 silly audit report       vulnerable_versions: '<0.1.10',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     },
+47 silly audit report     {
+47 silly audit report       id: 1105199,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-rhx6-c78j-4q9w',
+47 silly audit report       title: 'path-to-regexp contains a ReDoS',
+47 silly audit report       severity: 'high',
+47 silly audit report       vulnerable_versions: '<0.1.12',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     },
+47 silly audit report     {
+47 silly audit report       id: 1115527,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-37ch-88jc-xwx2',
+47 silly audit report       title: 'path-to-regexp vulnerable to Regular Expression Denial of Service via multiple route parameters',
+47 silly audit report       severity: 'high',
+47 silly audit report       vulnerable_versions: '<0.1.13',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ],
+47 silly audit report   picomatch: [
+47 silly audit report     {
+47 silly audit report       id: 1115549,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-3v7f-55p6-f55p',
+47 silly audit report       title: 'Picomatch: Method Injection in POSIX Character Classes causes incorrect Glob Matching',
+47 silly audit report       severity: 'moderate',
+47 silly audit report       vulnerable_versions: '<2.3.2',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     },
+47 silly audit report     {
+47 silly audit report       id: 1115552,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-c2c7-rcm5-vvqj',
+47 silly audit report       title: 'Picomatch has a ReDoS vulnerability via extglob quantifiers',
+47 silly audit report       severity: 'high',
+47 silly audit report       vulnerable_versions: '<2.3.2',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ],
+47 silly audit report   qs: [
+47 silly audit report     {
+47 silly audit report       id: 1113161,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-w7fw-mjwx-w883',
+47 silly audit report       title: "qs's arrayLimit bypass in comma parsing allows denial of service",
+47 silly audit report       severity: 'low',
+47 silly audit report       vulnerable_versions: '>=6.7.0 <=6.14.1',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     },
+47 silly audit report     {
+47 silly audit report       id: 1113719,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-6rw7-vpxm-498p',
+47 silly audit report       title: "qs's arrayLimit bypass in its bracket notation allows DoS via memory exhaustion",
+47 silly audit report       severity: 'moderate',
+47 silly audit report       vulnerable_versions: '<6.14.1',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ],
+47 silly audit report   send: [
+47 silly audit report     {
+47 silly audit report       id: 1109556,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-m6fv-jmcg-4jfg',
+47 silly audit report       title: 'send vulnerable to template injection that can lead to XSS',
+47 silly audit report       severity: 'low',
+47 silly audit report       vulnerable_versions: '<0.19.0',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ],
+47 silly audit report   'serve-static': [
+47 silly audit report     {
+47 silly audit report       id: 1100528,
+47 silly audit report       url: 'https://github.com/advisories/GHSA-cm22-4g7w-348p',
+47 silly audit report       title: 'serve-static vulnerable to template injection that can lead to XSS',
+47 silly audit report       severity: 'low',
+47 silly audit report       vulnerable_versions: '<1.16.0',
+47 silly audit report       cwe: [Array],
+47 silly audit report       cvss: [Object]
+47 silly audit report     }
+47 silly audit report   ]
+47 silly audit report }
+48 silly packumentCache corgi:https://registry.npmjs.org/body-parser cache-miss
+49 silly packumentCache corgi:https://registry.npmjs.org/brace-expansion cache-miss
+50 silly packumentCache corgi:https://registry.npmjs.org/cookie cache-miss
+51 silly packumentCache corgi:https://registry.npmjs.org/express cache-miss
+52 silly packumentCache corgi:https://registry.npmjs.org/minimatch cache-miss
+53 silly packumentCache corgi:https://registry.npmjs.org/mongoose cache-miss
+54 silly packumentCache corgi:https://registry.npmjs.org/path-to-regexp cache-miss
+55 silly packumentCache corgi:https://registry.npmjs.org/picomatch cache-miss
+56 silly packumentCache corgi:https://registry.npmjs.org/qs cache-miss
+57 silly packumentCache corgi:https://registry.npmjs.org/send cache-miss
+58 silly packumentCache corgi:https://registry.npmjs.org/serve-static cache-miss
+59 http fetch GET 200 https://registry.npmjs.org/body-parser 55ms (cache revalidated)
+60 silly packumentCache corgi:https://registry.npmjs.org/body-parser set size:78944 disposed:false
+61 http fetch GET 200 https://registry.npmjs.org/cookie 135ms (cache revalidated)
+62 silly packumentCache corgi:https://registry.npmjs.org/cookie set size:23677 disposed:false
+63 http fetch GET 200 https://registry.npmjs.org/minimatch 160ms (cache revalidated)
+64 silly packumentCache corgi:https://registry.npmjs.org/minimatch set size:168441 disposed:false
+65 http fetch GET 200 https://registry.npmjs.org/brace-expansion 162ms (cache revalidated)
+66 silly packumentCache corgi:https://registry.npmjs.org/brace-expansion set size:24623 disposed:false
+67 http fetch GET 200 https://registry.npmjs.org/picomatch 162ms (cache revalidated)
+68 silly packumentCache corgi:https://registry.npmjs.org/picomatch set size:44414 disposed:false
+69 http fetch GET 200 https://registry.npmjs.org/path-to-regexp 162ms (cache revalidated)
+70 silly packumentCache corgi:https://registry.npmjs.org/path-to-regexp set size:66575 disposed:false
+71 http fetch GET 200 https://registry.npmjs.org/qs 164ms (cache revalidated)
+72 silly packumentCache corgi:https://registry.npmjs.org/qs set size:146581 disposed:false
+73 http fetch GET 200 https://registry.npmjs.org/express 168ms (cache revalidated)
+74 silly packumentCache corgi:https://registry.npmjs.org/express set size:339376 disposed:false
+75 http fetch GET 200 https://registry.npmjs.org/serve-static 169ms (cache revalidated)
+76 silly packumentCache corgi:https://registry.npmjs.org/serve-static set size:58234 disposed:false
+77 http fetch GET 200 https://registry.npmjs.org/send 180ms (cache revalidated)
+78 silly packumentCache corgi:https://registry.npmjs.org/send set size:63171 disposed:false
+79 http fetch GET 200 https://registry.npmjs.org/mongoose 422ms (cache revalidated)
+80 silly packumentCache corgi:https://registry.npmjs.org/mongoose set size:1616273 disposed:false
+81 silly packumentCache corgi:https://registry.npmjs.org/nodemon cache-miss
+82 http fetch GET 200 https://registry.npmjs.org/nodemon 44ms (cache revalidated)
+83 silly packumentCache corgi:https://registry.npmjs.org/nodemon set size:282567 disposed:false
+84 silly packumentCache corgi:https://registry.npmjs.org/anymatch cache-miss
+85 silly packumentCache corgi:https://registry.npmjs.org/readdirp cache-miss
+86 http fetch GET 200 https://registry.npmjs.org/readdirp 56ms (cache revalidated)
+87 silly packumentCache corgi:https://registry.npmjs.org/readdirp set size:47123 disposed:false
+88 http fetch GET 200 https://registry.npmjs.org/anymatch 61ms (cache revalidated)
+89 silly packumentCache corgi:https://registry.npmjs.org/anymatch set size:18345 disposed:false
+90 silly REMOVE node_modules/@napi-rs/canvas-darwin-arm64
+91 silly REMOVE node_modules/@napi-rs/canvas
+92 silly REMOVE node_modules/pdfjs-dist
+93 silly CHANGE node_modules/pdf-parse
+94 silly CHANGE node_modules/pdf-parse/node_modules/debug
+95 silly CHANGE node_modules/pdf-parse/node_modules/ms
+96 silly CHANGE node_modules/node-ensure
+97 verbose cwd /Users/abhishek/Documents/Bills/billsbackend
+98 verbose os Darwin 25.5.0
+99 verbose node v24.15.0
+100 verbose npm  v11.12.1
+101 verbose exit 0
+102 info ok
