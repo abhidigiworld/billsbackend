@@ -1121,6 +1121,130 @@ function maskSensitiveData(text) {
   return masked;
 }
 
+// Fetch secure context from Database based on user prompt
+const fetchContextFromDb = async (prompt) => {
+  if (!prompt || typeof prompt !== 'string') return '';
+  let context = '';
+  try {
+    const promptLower = prompt.toLowerCase();
+    
+    // 1. Check for specific invoice numbers (e.g. "invoice 45", "invoice no 45", "bill 45")
+    const invNoMatch = prompt.match(/(?:invoice|bill|inv)(?:\s*(?:no|number|\#))?\s*(\w+)/i);
+    if (invNoMatch) {
+      const targetNo = invNoMatch[1];
+      let queryVal = targetNo;
+      
+      const invoices = await Invoice.find({
+        $or: [
+          { invoiceNo: queryVal },
+          { invoiceNo: String(parseInt(queryVal) || queryVal).padStart(3, '0') },
+          { invoiceNo: { $regex: queryVal, $options: 'i' } }
+        ]
+      }).limit(3);
+      
+      if (invoices.length > 0) {
+        context += `\nMatching Invoices found in database:\n`;
+        invoices.forEach(inv => {
+          context += `* Invoice No: ${inv.invoiceNo}\n`;
+          context += `  - Date: ${inv.invoiceDate ? inv.invoiceDate.toISOString().split('T')[0] : 'N/A'}\n`;
+          context += `  - Recipient Company: ${inv.companyName}\n`;
+          context += `  - Recipient GSTIN: ${inv.gstin || 'N/A'}\n`;
+          context += `  - State & Code: ${inv.state} (${inv.stateCode})\n`;
+          context += `  - Grand Total: ₹${inv.grandTotal}\n`;
+          context += `  - Grand Total in Words: ${inv.grandTotalInWords || 'N/A'}\n`;
+          context += `  - Items Details:\n`;
+          inv.items.forEach((item, idx) => {
+            context += `    [${idx + 1}] ${item.description} | HSN: ${item.hsnAsc} | Qty: ${item.quantity} | Rate: ₹${item.rate} | Total: ₹${item.totalValue}\n`;
+          });
+          context += `  - Freight Charges: ₹${inv.freightCharges || 0}\n`;
+          context += `  - Taxes: CGST ₹${inv.cgst || 0}, SGST ₹${inv.sgst || 0}, IGST ₹${inv.igst || 0}\n\n`;
+        });
+      }
+    }
+    
+    // 2. Check for company name mentions (e.g. "invoice for avantec")
+    const companyKeywords = ['avantec', 'abc', 'corporation', 'industries', 'services', 'enterprise', 'limit', 'ltd'];
+    let matchedCompany = null;
+    for (const kw of companyKeywords) {
+      if (promptLower.includes(kw)) {
+        matchedCompany = kw;
+        break;
+      }
+    }
+    
+    const companyMatch = prompt.match(/(?:invoice|bill|inv)(?:\s*(?:of|for|from|to))?\s+([A-Za-z0-9\s]+)/i);
+    let potentialCompany = matchedCompany;
+    if (companyMatch && !invNoMatch) {
+      const candidate = companyMatch[1].trim();
+      if (candidate.length > 2 && !['no', 'number', 'the', 'my', 'any', 'all'].includes(candidate.toLowerCase())) {
+        potentialCompany = candidate;
+      }
+    }
+    
+    if (potentialCompany) {
+      const invoices = await Invoice.find({
+        companyName: { $regex: potentialCompany, $options: 'i' }
+      }).sort({ invoiceDate: -1 }).limit(3);
+      
+      if (invoices.length > 0) {
+        let hasNewInvoices = invoices.some(inv => !context.includes(inv.invoiceNo));
+        if (hasNewInvoices) {
+          context += `\nInvoices for company "${potentialCompany}":\n`;
+          invoices.forEach(inv => {
+            if (!context.includes(inv.invoiceNo)) {
+              context += `* Invoice No: ${inv.invoiceNo} | Date: ${inv.invoiceDate ? inv.invoiceDate.toISOString().split('T')[0] : 'N/A'} | Recipient: ${inv.companyName} | Total: ₹${inv.grandTotal}\n`;
+              context += `  - Items: ${inv.items.map(i => `${i.description} (Qty: ${i.quantity}, Total: ₹${i.totalValue})`).join(', ')}\n\n`;
+            }
+          });
+        }
+      }
+    }
+
+    // 3. Check for employee names (e.g. "employee Ramesh", "salary of Ramesh")
+    const employees = await Employee.find({}).select('name designation department status email grossSalary dateOfJoining');
+    const matchedEmployees = [];
+    employees.forEach(emp => {
+      const nameParts = emp.name.toLowerCase().split(/\s+/);
+      const matched = nameParts.some(part => part.length > 2 && promptLower.includes(part));
+      if (matched) {
+        matchedEmployees.push(emp);
+      }
+    });
+
+    if (matchedEmployees.length > 0) {
+      context += `\nMatching Employee profiles found in database:\n`;
+      for (const emp of matchedEmployees) {
+        context += `* Employee Name: ${emp.name}\n`;
+        context += `  - Designation: ${emp.designation}\n`;
+        context += `  - Department: ${emp.department || 'N/A'}\n`;
+        context += `  - Status: ${emp.status}\n`;
+        context += `  - Email: ${emp.email}\n`;
+        context += `  - Date of Joining: ${emp.dateOfJoining ? emp.dateOfJoining.toISOString().split('T')[0] : 'N/A'}\n`;
+        context += `  - Gross Salary: ₹${emp.grossSalary ? emp.grossSalary.toLocaleString('en-IN') : 'N/A'}\n`;
+        
+        if (promptLower.includes('salary') || promptLower.includes('pay') || promptLower.includes('slip')) {
+          const salarySlips = await SalarySlip.find({ employeeId: emp._id }).sort({ _id: -1 }).limit(1);
+          if (salarySlips.length > 0) {
+            const slip = salarySlips[0];
+            context += `  - Latest Salary Slip Details (Month: ${slip.monthOfSalary}):\n`;
+            context += `    * Work Days: ${slip.workDays} days\n`;
+            context += `    * Total Gross Salary: ₹${slip.totalSalary}\n`;
+            context += `    * Advance Taken: ₹${slip.advance || 0}\n`;
+            context += `    * ESIC Deduction: ₹${slip.esic || 0}\n`;
+            context += `    * Lunch Deduction: ₹${slip.lunchDeduction || 0}\n`;
+            context += `    * Net In-Hand Paid: ₹${slip.inHandSalary}\n`;
+          }
+        }
+        context += `\n`;
+      }
+    }
+    
+  } catch (err) {
+    console.error('Error fetching dynamic database context for AI Chat:', err);
+  }
+  return context;
+};
+
 // In-memory rate limiting cache for AI chat
 const rateLimitCache = new Map();
 
@@ -1250,6 +1374,14 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
     console.log('[AI Chat] Analytics query detected. Fetching secure MongoDB aggregate metadata...');
     const dbSummary = await getDatabaseSummaryMetadata();
     systemPromptText += `\n\nReal-time database context for answering user questions:\n${dbSummary}`;
+  }
+
+  // Inject specific database document details mentioned in the user prompt (e.g. invoice no 45, employee Ramesh)
+  const userPrompt = sanitizedMessages[sanitizedMessages.length - 1]?.content || '';
+  const specificContext = await fetchContextFromDb(userPrompt);
+  if (specificContext) {
+    console.log('[AI Chat] Specific database document context fetched. Injecting...');
+    systemPromptText += `\n\nSpecific document details fetched from database to help you answer the user's request:\n${specificContext}`;
   }
 
   const systemPrompt = {
