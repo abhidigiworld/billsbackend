@@ -1436,7 +1436,7 @@ const employeeSchema = new mongoose.Schema({
   grossSalary: { type: Number, required: true },
   designation: { type: String, default: '' },
   location: { type: String, default: '' },
-  status: { type: String, enum: ['Active', 'On Hold', 'On Holiday', 'Inactive'], default: 'Active' }
+  status: { type: String, enum: ['Active', 'On Hold', 'On Holiday', 'Inactive', 'Discontinued'], default: 'Active' }
 });
 
 const Employee = mongoose.model('Employee', employeeSchema);
@@ -1447,7 +1447,9 @@ const attendanceSchema = new mongoose.Schema({
   date: { type: String, required: true }, // YYYY-MM-DD
   checkIn: { type: Date },
   checkOut: { type: Date },
-  status: { type: String, enum: ['Present', 'Absent', 'Leave', 'Holiday'], default: 'Absent' }
+  status: { type: String, enum: ['Present', 'Absent', 'Leave', 'Holiday'], default: 'Absent' },
+  overtimeHours: { type: Number, default: 0 },
+  isNightShift: { type: Boolean, default: false }
 });
 
 const Attendance = mongoose.model('Attendance', attendanceSchema);
@@ -1506,8 +1508,8 @@ app.delete('/api/employees/:id', async (req, res) => {
 // Route to get all active employees (Active, On Hold, On Holiday)
 app.get('/api/employees/active', async (req, res) => {
   try {
-    // Fetch employees who are not 'Inactive'
-    const activeEmployees = await Employee.find({ status: { $ne: 'Inactive' } });
+    // Fetch employees who are not 'Inactive' or 'Discontinued'
+    const activeEmployees = await Employee.find({ status: { $nin: ['Inactive', 'Discontinued'] } });
     res.json(activeEmployees);
   } catch (error) {
     console.error('Error fetching active employees:', error);
@@ -1912,7 +1914,7 @@ app.put('/api/salary-slips/:id', async (req, res) => {
 
 // Admin Mark Attendance Endpoint (Admin Only)
 app.post('/api/attendance/admin-mark', async (req, res) => {
-  const { employeeId, date, status, checkIn, checkOut } = req.body;
+  const { employeeId, date, status, checkIn, checkOut, overtimeHours, isNightShift } = req.body;
 
   try {
     const employee = await Employee.findById(employeeId);
@@ -1943,6 +1945,8 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
       attendance.status = status;
       attendance.checkIn = checkInDate;
       attendance.checkOut = checkOutDate;
+      attendance.overtimeHours = status === 'Present' ? (Number(overtimeHours) || 0) : 0;
+      attendance.isNightShift = status === 'Present' ? (Boolean(isNightShift) || false) : false;
       await attendance.save();
     } else {
       attendance = new Attendance({
@@ -1950,7 +1954,9 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
         date,
         status,
         checkIn: checkInDate,
-        checkOut: checkOutDate
+        checkOut: checkOutDate,
+        overtimeHours: status === 'Present' ? (Number(overtimeHours) || 0) : 0,
+        isNightShift: status === 'Present' ? (Boolean(isNightShift) || false) : false
       });
       await attendance.save();
     }
@@ -1964,14 +1970,15 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
 
 // Blanket Mark Attendance Endpoint
 app.post('/api/attendance/blanket-mark', async (req, res) => {
-  const { date, status, checkIn, checkOut } = req.body;
+  const { date, status, checkIn, checkOut, overtimeHours, isNightShift } = req.body;
 
   if (!date || !status) {
     return res.status(400).json({ success: false, message: 'Date and Status are required fields.' });
   }
 
   try {
-    const employees = await Employee.find();
+    // Exclude discontinued employees from blanket attendance marking
+    const employees = await Employee.find({ status: { $ne: 'Discontinued' } });
     if (!employees || employees.length === 0) {
       return res.status(400).json({ success: false, message: 'No employees found to register attendance.' });
     }
@@ -2000,7 +2007,9 @@ app.post('/api/attendance/blanket-mark', async (req, res) => {
             $set: {
               status,
               checkIn: checkInDate,
-              checkOut: checkOutDate
+              checkOut: checkOutDate,
+              overtimeHours: status === 'Present' ? (Number(overtimeHours) || 0) : 0,
+              isNightShift: status === 'Present' ? (Boolean(isNightShift) || false) : false
             }
           },
           upsert: true
