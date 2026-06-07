@@ -1,0 +1,577 @@
+0 verbose cli /usr/local/bin/node /usr/local/bin/npm
+1 info using npm@11.12.1
+2 info using node@v24.15.0
+3 silly config load:file:/usr/local/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/abhishek/Documents/Bills/billsbackend/.npmrc
+5 silly config load:file:/Users/abhishek/.npmrc
+6 silly config load:file:/usr/local/etc/npmrc
+7 verbose title npm install multer pdf-parse
+8 verbose argv "install" "multer" "pdf-parse" "--save" "--cache" "./.npm-cache"
+9 verbose logfile logs-max:10 dir:/Users/abhishek/Documents/Bills/billsbackend/.npm-cache/_logs/2026-06-07T11_44_59_507Z-
+10 verbose logfile /Users/abhishek/Documents/Bills/billsbackend/.npm-cache/_logs/2026-06-07T11_44_59_507Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4496293888 maxSize:1124073472 maxEntrySize:562036736
+13 silly idealTree buildDeps
+14 silly fetch manifest multer@*
+15 silly packumentCache full:https://registry.npmjs.org/multer cache-miss
+16 http fetch GET 200 https://registry.npmjs.org/multer 179ms (cache miss)
+17 silly packumentCache full:https://registry.npmjs.org/multer set size:undefined disposed:false
+18 silly fetch manifest pdf-parse@*
+19 silly packumentCache full:https://registry.npmjs.org/pdf-parse cache-miss
+20 http fetch GET 200 https://registry.npmjs.org/pdf-parse 59ms (cache miss)
+21 silly packumentCache full:https://registry.npmjs.org/pdf-parse set size:undefined disposed:false
+22 silly placeDep ROOT multer@2.1.1 OK for: backend@1.0.0 want: *
+23 silly placeDep ROOT pdf-parse@2.4.5 OK for: backend@1.0.0 want: *
+24 silly fetch manifest append-field@^1.0.0
+25 silly packumentCache full:https://registry.npmjs.org/append-field cache-miss
+26 silly fetch manifest busboy@^1.6.0
+27 silly packumentCache full:https://registry.npmjs.org/busboy cache-miss
+28 silly fetch manifest concat-stream@^2.0.0
+29 silly packumentCache full:https://registry.npmjs.org/concat-stream cache-miss
+30 silly fetch manifest pdfjs-dist@5.4.296
+31 silly packumentCache full:https://registry.npmjs.org/pdfjs-dist cache-miss
+32 silly fetch manifest @napi-rs/canvas@0.1.80
+33 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas cache-miss
+34 http fetch GET 200 https://registry.npmjs.org/append-field 56ms (cache miss)
+35 silly packumentCache full:https://registry.npmjs.org/append-field set size:undefined disposed:false
+36 http fetch GET 200 https://registry.npmjs.org/busboy 148ms (cache miss)
+37 silly packumentCache full:https://registry.npmjs.org/busboy set size:undefined disposed:false
+38 http fetch GET 200 https://registry.npmjs.org/concat-stream 175ms (cache miss)
+39 silly packumentCache full:https://registry.npmjs.org/concat-stream set size:undefined disposed:false
+40 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas 193ms (cache miss)
+41 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas set size:undefined disposed:false
+42 http fetch GET 200 https://registry.npmjs.org/pdfjs-dist 309ms (cache miss)
+43 silly packumentCache full:https://registry.npmjs.org/pdfjs-dist set size:undefined disposed:false
+44 silly placeDep ROOT append-field@1.0.0 OK for: multer@2.1.1 want: ^1.0.0
+45 silly placeDep ROOT busboy@1.6.0 OK for: multer@2.1.1 want: ^1.6.0
+46 silly placeDep ROOT concat-stream@2.0.0 OK for: multer@2.1.1 want: ^2.0.0
+47 silly fetch manifest streamsearch@^1.1.0
+48 silly packumentCache full:https://registry.npmjs.org/streamsearch cache-miss
+49 silly fetch manifest buffer-from@^1.0.0
+50 silly packumentCache full:https://registry.npmjs.org/buffer-from cache-miss
+51 silly fetch manifest readable-stream@^3.0.2
+52 silly packumentCache full:https://registry.npmjs.org/readable-stream cache-miss
+53 silly fetch manifest typedarray@^0.0.6
+54 silly packumentCache full:https://registry.npmjs.org/typedarray cache-miss
+55 http fetch GET 200 https://registry.npmjs.org/typedarray 45ms (cache miss)
+56 silly packumentCache full:https://registry.npmjs.org/typedarray set size:undefined disposed:false
+57 http fetch GET 200 https://registry.npmjs.org/buffer-from 46ms (cache miss)
+58 silly packumentCache full:https://registry.npmjs.org/buffer-from set size:undefined disposed:false
+59 http fetch GET 200 https://registry.npmjs.org/streamsearch 47ms (cache miss)
+60 silly packumentCache full:https://registry.npmjs.org/streamsearch set size:undefined disposed:false
+61 http fetch GET 200 https://registry.npmjs.org/readable-stream 54ms (cache miss)
+62 silly packumentCache full:https://registry.npmjs.org/readable-stream set size:undefined disposed:false
+63 silly placeDep ROOT streamsearch@1.1.0 OK for: busboy@1.6.0 want: ^1.1.0
+64 silly placeDep ROOT buffer-from@1.1.2 OK for: concat-stream@2.0.0 want: ^1.0.0
+65 silly placeDep ROOT readable-stream@3.6.2 OK for: concat-stream@2.0.0 want: ^3.0.2
+66 silly placeDep ROOT typedarray@0.0.6 OK for: concat-stream@2.0.0 want: ^0.0.6
+67 silly fetch manifest string_decoder@^1.1.1
+68 silly packumentCache full:https://registry.npmjs.org/string_decoder cache-miss
+69 silly fetch manifest util-deprecate@^1.0.1
+70 silly packumentCache full:https://registry.npmjs.org/util-deprecate cache-miss
+71 http fetch GET 200 https://registry.npmjs.org/util-deprecate 49ms (cache miss)
+72 silly packumentCache full:https://registry.npmjs.org/util-deprecate set size:undefined disposed:false
+73 http fetch GET 200 https://registry.npmjs.org/string_decoder 56ms (cache miss)
+74 silly packumentCache full:https://registry.npmjs.org/string_decoder set size:undefined disposed:false
+75 silly placeDep ROOT @napi-rs/canvas@0.1.80 OK for: pdf-parse@2.4.5 want: 0.1.80
+76 silly placeDep ROOT pdfjs-dist@5.4.296 OK for: pdf-parse@2.4.5 want: 5.4.296
+77 silly fetch manifest @napi-rs/canvas-darwin-x64@0.1.80
+78 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-darwin-x64 cache-miss
+79 silly fetch manifest @napi-rs/canvas-darwin-arm64@0.1.80
+80 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-darwin-arm64 cache-miss
+81 silly fetch manifest @napi-rs/canvas-android-arm64@0.1.80
+82 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-android-arm64 cache-miss
+83 silly fetch manifest @napi-rs/canvas-linux-x64-gnu@0.1.80
+84 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-x64-gnu cache-miss
+85 silly fetch manifest @napi-rs/canvas-linux-x64-musl@0.1.80
+86 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-x64-musl cache-miss
+87 silly fetch manifest @napi-rs/canvas-win32-x64-msvc@0.1.80
+88 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-win32-x64-msvc cache-miss
+89 silly fetch manifest @napi-rs/canvas-linux-arm64-gnu@0.1.80
+90 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-arm64-gnu cache-miss
+91 silly fetch manifest @napi-rs/canvas-linux-arm64-musl@0.1.80
+92 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-arm64-musl cache-miss
+93 silly fetch manifest @napi-rs/canvas-linux-riscv64-gnu@0.1.80
+94 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-riscv64-gnu cache-miss
+95 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas-darwin-x64 265ms (cache miss)
+96 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-darwin-x64 set size:undefined disposed:false
+97 silly fetch manifest @napi-rs/canvas-linux-arm-gnueabihf@0.1.80
+98 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-arm-gnueabihf cache-miss
+99 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas-linux-x64-gnu 333ms (cache miss)
+100 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-x64-gnu set size:undefined disposed:false
+101 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas-linux-arm64-musl 379ms (cache miss)
+102 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-arm64-musl set size:undefined disposed:false
+103 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas-win32-x64-msvc 384ms (cache miss)
+104 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-win32-x64-msvc set size:undefined disposed:false
+105 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas-linux-riscv64-gnu 445ms (cache miss)
+106 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-riscv64-gnu set size:undefined disposed:false
+107 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas-linux-arm64-gnu 472ms (cache miss)
+108 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-arm64-gnu set size:undefined disposed:false
+109 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas-darwin-arm64 485ms (cache miss)
+110 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-darwin-arm64 set size:undefined disposed:false
+111 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas-linux-x64-musl 516ms (cache miss)
+112 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-x64-musl set size:undefined disposed:false
+113 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas-linux-arm-gnueabihf 371ms (cache miss)
+114 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-linux-arm-gnueabihf set size:undefined disposed:false
+115 http fetch GET 200 https://registry.npmjs.org/@napi-rs%2fcanvas-android-arm64 928ms (cache miss)
+116 silly packumentCache full:https://registry.npmjs.org/@napi-rs%2fcanvas-android-arm64 set size:undefined disposed:false
+117 silly placeDep ROOT @napi-rs/canvas-android-arm64@0.1.80 OK for: @napi-rs/canvas@0.1.80 want: 0.1.80
+118 silly placeDep ROOT @napi-rs/canvas-darwin-arm64@0.1.80 OK for: @napi-rs/canvas@0.1.80 want: 0.1.80
+119 silly placeDep ROOT @napi-rs/canvas-darwin-x64@0.1.80 OK for: @napi-rs/canvas@0.1.80 want: 0.1.80
+120 silly placeDep ROOT @napi-rs/canvas-linux-arm-gnueabihf@0.1.80 OK for: @napi-rs/canvas@0.1.80 want: 0.1.80
+121 silly placeDep ROOT @napi-rs/canvas-linux-arm64-gnu@0.1.80 OK for: @napi-rs/canvas@0.1.80 want: 0.1.80
+122 silly placeDep ROOT @napi-rs/canvas-linux-arm64-musl@0.1.80 OK for: @napi-rs/canvas@0.1.80 want: 0.1.80
+123 silly placeDep ROOT @napi-rs/canvas-linux-riscv64-gnu@0.1.80 OK for: @napi-rs/canvas@0.1.80 want: 0.1.80
+124 silly placeDep ROOT @napi-rs/canvas-linux-x64-gnu@0.1.80 OK for: @napi-rs/canvas@0.1.80 want: 0.1.80
+125 silly placeDep ROOT @napi-rs/canvas-linux-x64-musl@0.1.80 OK for: @napi-rs/canvas@0.1.80 want: 0.1.80
+126 silly placeDep ROOT @napi-rs/canvas-win32-x64-msvc@0.1.80 OK for: @napi-rs/canvas@0.1.80 want: 0.1.80
+127 silly placeDep ROOT string_decoder@1.3.0 OK for: readable-stream@3.6.2 want: ^1.1.1
+128 silly placeDep ROOT util-deprecate@1.0.2 OK for: readable-stream@3.6.2 want: ^1.0.1
+129 silly reify moves {}
+130 silly audit bulk request {
+130 silly audit   '@mongodb-js/saslprep': [ '1.1.7' ],
+130 silly audit   '@types/webidl-conversions': [ '7.0.3' ],
+130 silly audit   '@types/whatwg-url': [ '11.0.5' ],
+130 silly audit   accepts: [ '1.3.8' ],
+130 silly audit   anymatch: [ '3.1.3' ],
+130 silly audit   'array-flatten': [ '1.1.1' ],
+130 silly audit   'balanced-match': [ '1.0.2' ],
+130 silly audit   bcryptjs: [ '3.0.3' ],
+130 silly audit   'binary-extensions': [ '2.3.0' ],
+130 silly audit   'body-parser': [ '1.20.2' ],
+130 silly audit   'brace-expansion': [ '1.1.11' ],
+130 silly audit   braces: [ '3.0.3' ],
+130 silly audit   bson: [ '6.7.0' ],
+130 silly audit   bytes: [ '3.1.2' ],
+130 silly audit   'call-bind': [ '1.0.7' ],
+130 silly audit   chokidar: [ '3.6.0' ],
+130 silly audit   'concat-map': [ '0.0.1' ],
+130 silly audit   'content-disposition': [ '0.5.4' ],
+130 silly audit   'content-type': [ '1.0.5' ],
+130 silly audit   cookie: [ '0.6.0' ],
+130 silly audit   'cookie-signature': [ '1.0.6' ],
+130 silly audit   cors: [ '2.8.5' ],
+130 silly audit   debug: [ '2.6.9', '4.3.4', '4.3.7' ],
+130 silly audit   'define-data-property': [ '1.1.4' ],
+130 silly audit   depd: [ '2.0.0' ],
+130 silly audit   destroy: [ '1.2.0' ],
+130 silly audit   dotenv: [ '17.4.2' ],
+130 silly audit   'ee-first': [ '1.1.1' ],
+130 silly audit   encodeurl: [ '1.0.2' ],
+130 silly audit   'es-define-property': [ '1.0.0' ],
+130 silly audit   'es-errors': [ '1.3.0' ],
+130 silly audit   'escape-html': [ '1.0.3' ],
+130 silly audit   etag: [ '1.8.1' ],
+130 silly audit   express: [ '4.19.2' ],
+130 silly audit   'fill-range': [ '7.1.1' ],
+130 silly audit   finalhandler: [ '1.2.0' ],
+130 silly audit   forwarded: [ '0.2.0' ],
+130 silly audit   fresh: [ '0.5.2' ],
+130 silly audit   fsevents: [ '2.3.3' ],
+130 silly audit   'function-bind': [ '1.1.2' ],
+130 silly audit   'get-intrinsic': [ '1.2.4' ],
+130 silly audit   'glob-parent': [ '5.1.2' ],
+130 silly audit   gopd: [ '1.0.1' ],
+130 silly audit   'has-flag': [ '3.0.0' ],
+130 silly audit   'has-property-descriptors': [ '1.0.2' ],
+130 silly audit   'has-proto': [ '1.0.3' ],
+130 silly audit   'has-symbols': [ '1.0.3' ],
+130 silly audit   hasown: [ '2.0.2' ],
+130 silly audit   'http-errors': [ '2.0.0' ],
+130 silly audit   'iconv-lite': [ '0.4.24' ],
+130 silly audit   'ignore-by-default': [ '1.0.1' ],
+130 silly audit   inherits: [ '2.0.4' ],
+130 silly audit   'ipaddr.js': [ '1.9.1' ],
+130 silly audit   'is-binary-path': [ '2.1.0' ],
+130 silly audit   'is-extglob': [ '2.1.1' ],
+130 silly audit   'is-glob': [ '4.0.3' ],
+130 silly audit   'is-number': [ '7.0.0' ],
+130 silly audit   kareem: [ '2.6.3' ],
+130 silly audit   'media-typer': [ '0.3.0' ],
+130 silly audit   'memory-pager': [ '1.5.0' ],
+130 silly audit   'merge-descriptors': [ '1.0.1' ],
+130 silly audit   methods: [ '1.1.2' ],
+130 silly audit   mime: [ '1.6.0' ],
+130 silly audit   'mime-db': [ '1.52.0' ],
+130 silly audit   'mime-types': [ '2.1.35' ],
+130 silly audit   minimatch: [ '3.1.2' ],
+130 silly audit   mongodb: [ '6.6.2' ],
+130 silly audit   'mongodb-connection-string-url': [ '3.0.1' ],
+130 silly audit   mongoose: [ '8.4.0' ],
+130 silly audit   ms: [ '2.1.3', '2.1.2', '2.0.0' ],
+130 silly audit   mpath: [ '0.9.0' ],
+130 silly audit   mquery: [ '5.0.0' ],
+130 silly audit   negotiator: [ '0.6.3' ],
+130 silly audit   nodemailer: [ '8.0.10' ],
+130 silly audit   nodemon: [ '3.1.7' ],
+130 silly audit   'normalize-path': [ '3.0.0' ],
+130 silly audit   'object-assign': [ '4.1.1' ],
+130 silly audit   'object-inspect': [ '1.13.1' ],
+130 silly audit   'on-finished': [ '2.4.1' ],
+130 silly audit   parseurl: [ '1.3.3' ],
+130 silly audit   'path-to-regexp': [ '0.1.7' ],
+130 silly audit   picomatch: [ '2.3.1' ],
+130 silly audit   'proxy-addr': [ '2.0.7' ],
+130 silly audit   'pstree.remy': [ '1.1.8' ],
+130 silly audit   punycode: [ '2.3.1' ],
+130 silly audit   qs: [ '6.11.0' ],
+130 silly audit   'range-parser': [ '1.2.1' ],
+130 silly audit   'raw-body': [ '2.5.2' ],
+130 silly audit   readdirp: [ '3.6.0' ],
+130 silly audit   'safe-buffer': [ '5.2.1' ],
+130 silly audit   'safer-buffer': [ '2.1.2' ],
+130 silly audit   semver: [ '7.6.3' ],
+130 silly audit   send: [ '0.18.0' ],
+130 silly audit   'serve-static': [ '1.15.0' ],
+130 silly audit   'set-function-length': [ '1.2.2' ],
+130 silly audit   setprototypeof: [ '1.2.0' ],
+130 silly audit   'side-channel': [ '1.0.6' ],
+130 silly audit   sift: [ '17.1.3' ],
+130 silly audit   'simple-update-notifier': [ '2.0.0' ],
+130 silly audit   'sparse-bitfield': [ '3.0.3' ],
+130 silly audit   statuses: [ '2.0.1' ],
+130 silly audit   'supports-color': [ '5.5.0' ],
+130 silly audit   'to-regex-range': [ '5.0.1' ],
+130 silly audit   toidentifier: [ '1.0.1' ],
+130 silly audit   touch: [ '3.1.1' ],
+130 silly audit   tr46: [ '4.1.1' ],
+130 silly audit   'type-is': [ '1.6.18' ],
+130 silly audit   undefsafe: [ '2.0.5' ],
+130 silly audit   unpipe: [ '1.0.0' ],
+130 silly audit   'utils-merge': [ '1.0.1' ],
+130 silly audit   vary: [ '1.1.2' ],
+130 silly audit   'webidl-conversions': [ '7.0.0' ],
+130 silly audit   'whatwg-url': [ '13.0.0' ],
+130 silly audit   multer: [ '2.1.1' ],
+130 silly audit   'pdf-parse': [ '2.4.5' ],
+130 silly audit   'append-field': [ '1.0.0' ],
+130 silly audit   busboy: [ '1.6.0' ],
+130 silly audit   'concat-stream': [ '2.0.0' ],
+130 silly audit   streamsearch: [ '1.1.0' ],
+130 silly audit   'buffer-from': [ '1.1.2' ],
+130 silly audit   'readable-stream': [ '3.6.2' ],
+130 silly audit   typedarray: [ '0.0.6' ],
+130 silly audit   '@napi-rs/canvas': [ '0.1.80' ],
+130 silly audit   'pdfjs-dist': [ '5.4.296' ],
+130 silly audit   '@napi-rs/canvas-android-arm64': [ '0.1.80' ],
+130 silly audit   '@napi-rs/canvas-darwin-arm64': [ '0.1.80' ],
+130 silly audit   '@napi-rs/canvas-darwin-x64': [ '0.1.80' ],
+130 silly audit   '@napi-rs/canvas-linux-arm-gnueabihf': [ '0.1.80' ],
+130 silly audit   '@napi-rs/canvas-linux-arm64-gnu': [ '0.1.80' ],
+130 silly audit   '@napi-rs/canvas-linux-arm64-musl': [ '0.1.80' ],
+130 silly audit   '@napi-rs/canvas-linux-riscv64-gnu': [ '0.1.80' ],
+130 silly audit   '@napi-rs/canvas-linux-x64-gnu': [ '0.1.80' ],
+130 silly audit   '@napi-rs/canvas-linux-x64-musl': [ '0.1.80' ],
+130 silly audit   '@napi-rs/canvas-win32-x64-msvc': [ '0.1.80' ],
+130 silly audit   string_decoder: [ '1.3.0' ],
+130 silly audit   'util-deprecate': [ '1.0.2' ]
+130 silly audit }
+131 http cache util-deprecate@https://registry.npmjs.org/util-deprecate/-/util-deprecate-1.0.2.tgz 0ms (cache hit)
+132 http cache @napi-rs/canvas-darwin-arm64@https://registry.npmjs.org/@napi-rs/canvas-darwin-arm64/-/canvas-darwin-arm64-0.1.80.tgz 0ms (cache hit)
+133 http cache string_decoder@https://registry.npmjs.org/string_decoder/-/string_decoder-1.3.0.tgz 0ms (cache hit)
+134 http cache pdfjs-dist@https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-5.4.296.tgz 0ms (cache hit)
+135 http cache typedarray@https://registry.npmjs.org/typedarray/-/typedarray-0.0.6.tgz 0ms (cache hit)
+136 http cache readable-stream@https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz 0ms (cache hit)
+137 http cache buffer-from@https://registry.npmjs.org/buffer-from/-/buffer-from-1.1.2.tgz 0ms (cache hit)
+138 http cache streamsearch@https://registry.npmjs.org/streamsearch/-/streamsearch-1.1.0.tgz 0ms (cache hit)
+139 http cache concat-stream@https://registry.npmjs.org/concat-stream/-/concat-stream-2.0.0.tgz 0ms (cache hit)
+140 http cache @napi-rs/canvas@https://registry.npmjs.org/@napi-rs/canvas/-/canvas-0.1.80.tgz 0ms (cache hit)
+141 http cache busboy@https://registry.npmjs.org/busboy/-/busboy-1.6.0.tgz 0ms (cache hit)
+142 http cache append-field@https://registry.npmjs.org/append-field/-/append-field-1.0.0.tgz 0ms (cache hit)
+143 http cache pdf-parse@https://registry.npmjs.org/pdf-parse/-/pdf-parse-2.4.5.tgz 0ms (cache hit)
+144 http cache multer@https://registry.npmjs.org/multer/-/multer-2.1.1.tgz 0ms (cache hit)
+145 silly tarball no local data for util-deprecate@https://registry.npmjs.org/util-deprecate/-/util-deprecate-1.0.2.tgz. Extracting by manifest.
+146 silly tarball no local data for @napi-rs/canvas-darwin-arm64@https://registry.npmjs.org/@napi-rs/canvas-darwin-arm64/-/canvas-darwin-arm64-0.1.80.tgz. Extracting by manifest.
+147 silly tarball no local data for string_decoder@https://registry.npmjs.org/string_decoder/-/string_decoder-1.3.0.tgz. Extracting by manifest.
+148 silly tarball no local data for pdfjs-dist@https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-5.4.296.tgz. Extracting by manifest.
+149 silly tarball no local data for typedarray@https://registry.npmjs.org/typedarray/-/typedarray-0.0.6.tgz. Extracting by manifest.
+150 silly tarball no local data for readable-stream@https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz. Extracting by manifest.
+151 silly tarball no local data for buffer-from@https://registry.npmjs.org/buffer-from/-/buffer-from-1.1.2.tgz. Extracting by manifest.
+152 silly tarball no local data for streamsearch@https://registry.npmjs.org/streamsearch/-/streamsearch-1.1.0.tgz. Extracting by manifest.
+153 silly tarball no local data for concat-stream@https://registry.npmjs.org/concat-stream/-/concat-stream-2.0.0.tgz. Extracting by manifest.
+154 silly tarball no local data for @napi-rs/canvas@https://registry.npmjs.org/@napi-rs/canvas/-/canvas-0.1.80.tgz. Extracting by manifest.
+155 silly tarball no local data for busboy@https://registry.npmjs.org/busboy/-/busboy-1.6.0.tgz. Extracting by manifest.
+156 silly tarball no local data for append-field@https://registry.npmjs.org/append-field/-/append-field-1.0.0.tgz. Extracting by manifest.
+157 silly tarball no local data for pdf-parse@https://registry.npmjs.org/pdf-parse/-/pdf-parse-2.4.5.tgz. Extracting by manifest.
+158 silly tarball no local data for multer@https://registry.npmjs.org/multer/-/multer-2.1.1.tgz. Extracting by manifest.
+159 http fetch GET 200 https://registry.npmjs.org/string_decoder/-/string_decoder-1.3.0.tgz 46ms (cache miss)
+160 http fetch GET 200 https://registry.npmjs.org/buffer-from/-/buffer-from-1.1.2.tgz 57ms (cache miss)
+161 http fetch GET 200 https://registry.npmjs.org/util-deprecate/-/util-deprecate-1.0.2.tgz 58ms (cache miss)
+162 http fetch GET 200 https://registry.npmjs.org/typedarray/-/typedarray-0.0.6.tgz 59ms (cache miss)
+163 http fetch GET 200 https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz 60ms (cache miss)
+164 http fetch GET 200 https://registry.npmjs.org/streamsearch/-/streamsearch-1.1.0.tgz 74ms (cache miss)
+165 http fetch GET 200 https://registry.npmjs.org/append-field/-/append-field-1.0.0.tgz 154ms (cache miss)
+166 http fetch GET 200 https://registry.npmjs.org/concat-stream/-/concat-stream-2.0.0.tgz 207ms (cache miss)
+167 http fetch GET 200 https://registry.npmjs.org/multer/-/multer-2.1.1.tgz 207ms (cache miss)
+168 http fetch GET 200 https://registry.npmjs.org/busboy/-/busboy-1.6.0.tgz 214ms (cache miss)
+169 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 327ms
+170 silly audit report {
+170 silly audit report   'body-parser': [
+170 silly audit report     {
+170 silly audit report       id: 1099520,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-qwcr-r2fm-qrc7',
+170 silly audit report       title: 'body-parser vulnerable to denial of service when url encoding is enabled',
+170 silly audit report       severity: 'high',
+170 silly audit report       vulnerable_versions: '<1.20.3',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ],
+170 silly audit report   'brace-expansion': [
+170 silly audit report     {
+170 silly audit report       id: 1105443,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-v6h2-p8h4-qcjw',
+170 silly audit report       title: 'brace-expansion Regular Expression Denial of Service vulnerability',
+170 silly audit report       severity: 'low',
+170 silly audit report       vulnerable_versions: '>=1.0.0 <=1.1.11',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     },
+170 silly audit report     {
+170 silly audit report       id: 1115540,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-f886-m6hf-6m8v',
+170 silly audit report       title: 'brace-expansion: Zero-step sequence causes process hang and memory exhaustion',
+170 silly audit report       severity: 'moderate',
+170 silly audit report       vulnerable_versions: '<1.1.13',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ],
+170 silly audit report   cookie: [
+170 silly audit report     {
+170 silly audit report       id: 1103907,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-pxg6-pf52-xh8x',
+170 silly audit report       title: 'cookie accepts cookie name, path, and domain with out of bounds characters',
+170 silly audit report       severity: 'low',
+170 silly audit report       vulnerable_versions: '<0.7.0',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ],
+170 silly audit report   express: [
+170 silly audit report     {
+170 silly audit report       id: 1100530,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-qw6h-vgh9-j6wx',
+170 silly audit report       title: 'express vulnerable to XSS via response.redirect()',
+170 silly audit report       severity: 'low',
+170 silly audit report       vulnerable_versions: '<4.20.0',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ],
+170 silly audit report   minimatch: [
+170 silly audit report     {
+170 silly audit report       id: 1113459,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-3ppc-4f35-3m26',
+170 silly audit report       title: 'minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern',
+170 silly audit report       severity: 'high',
+170 silly audit report       vulnerable_versions: '<3.1.3',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     },
+170 silly audit report     {
+170 silly audit report       id: 1113538,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-7r86-cg39-jmmj',
+170 silly audit report       title: 'minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments',
+170 silly audit report       severity: 'high',
+170 silly audit report       vulnerable_versions: '<3.1.3',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     },
+170 silly audit report     {
+170 silly audit report       id: 1113546,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-23c5-xmqv-rm74',
+170 silly audit report       title: 'minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions',
+170 silly audit report       severity: 'high',
+170 silly audit report       vulnerable_versions: '<3.1.4',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ],
+170 silly audit report   mongoose: [
+170 silly audit report     {
+170 silly audit report       id: 1118997,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-wpg9-53fq-2r8h',
+170 silly audit report       title: "Mongoose's Improper Sanitization of $nor in sanitizeFilter May Allow NoSQL Injection",
+170 silly audit report       severity: 'high',
+170 silly audit report       vulnerable_versions: '>=8.0.0 <=8.22.0',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     },
+170 silly audit report     {
+170 silly audit report       id: 1112942,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-m7xq-9374-9rvx',
+170 silly audit report       title: 'Mongoose search injection vulnerability',
+170 silly audit report       severity: 'high',
+170 silly audit report       vulnerable_versions: '>=8.0.0-rc0 <8.8.3',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     },
+170 silly audit report     {
+170 silly audit report       id: 1117406,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-vg7j-7cwx-8wgw',
+170 silly audit report       title: 'Mongoose search injection vulnerability',
+170 silly audit report       severity: 'critical',
+170 silly audit report       vulnerable_versions: '>=8.0.0-rc0 <8.9.5',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ],
+170 silly audit report   'path-to-regexp': [
+170 silly audit report     {
+170 silly audit report       id: 1101850,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-9wv6-86v2-598j',
+170 silly audit report       title: 'path-to-regexp outputs backtracking regular expressions',
+170 silly audit report       severity: 'high',
+170 silly audit report       vulnerable_versions: '<0.1.10',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     },
+170 silly audit report     {
+170 silly audit report       id: 1105199,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-rhx6-c78j-4q9w',
+170 silly audit report       title: 'path-to-regexp contains a ReDoS',
+170 silly audit report       severity: 'high',
+170 silly audit report       vulnerable_versions: '<0.1.12',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     },
+170 silly audit report     {
+170 silly audit report       id: 1115527,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-37ch-88jc-xwx2',
+170 silly audit report       title: 'path-to-regexp vulnerable to Regular Expression Denial of Service via multiple route parameters',
+170 silly audit report       severity: 'high',
+170 silly audit report       vulnerable_versions: '<0.1.13',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ],
+170 silly audit report   picomatch: [
+170 silly audit report     {
+170 silly audit report       id: 1115549,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-3v7f-55p6-f55p',
+170 silly audit report       title: 'Picomatch: Method Injection in POSIX Character Classes causes incorrect Glob Matching',
+170 silly audit report       severity: 'moderate',
+170 silly audit report       vulnerable_versions: '<2.3.2',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     },
+170 silly audit report     {
+170 silly audit report       id: 1115552,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-c2c7-rcm5-vvqj',
+170 silly audit report       title: 'Picomatch has a ReDoS vulnerability via extglob quantifiers',
+170 silly audit report       severity: 'high',
+170 silly audit report       vulnerable_versions: '<2.3.2',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ],
+170 silly audit report   qs: [
+170 silly audit report     {
+170 silly audit report       id: 1113161,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-w7fw-mjwx-w883',
+170 silly audit report       title: "qs's arrayLimit bypass in comma parsing allows denial of service",
+170 silly audit report       severity: 'low',
+170 silly audit report       vulnerable_versions: '>=6.7.0 <=6.14.1',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     },
+170 silly audit report     {
+170 silly audit report       id: 1113719,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-6rw7-vpxm-498p',
+170 silly audit report       title: "qs's arrayLimit bypass in its bracket notation allows DoS via memory exhaustion",
+170 silly audit report       severity: 'moderate',
+170 silly audit report       vulnerable_versions: '<6.14.1',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ],
+170 silly audit report   send: [
+170 silly audit report     {
+170 silly audit report       id: 1109556,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-m6fv-jmcg-4jfg',
+170 silly audit report       title: 'send vulnerable to template injection that can lead to XSS',
+170 silly audit report       severity: 'low',
+170 silly audit report       vulnerable_versions: '<0.19.0',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ],
+170 silly audit report   'serve-static': [
+170 silly audit report     {
+170 silly audit report       id: 1100528,
+170 silly audit report       url: 'https://github.com/advisories/GHSA-cm22-4g7w-348p',
+170 silly audit report       title: 'serve-static vulnerable to template injection that can lead to XSS',
+170 silly audit report       severity: 'low',
+170 silly audit report       vulnerable_versions: '<1.16.0',
+170 silly audit report       cwe: [Array],
+170 silly audit report       cvss: [Object]
+170 silly audit report     }
+170 silly audit report   ]
+170 silly audit report }
+171 silly packumentCache corgi:https://registry.npmjs.org/body-parser cache-miss
+172 silly packumentCache corgi:https://registry.npmjs.org/brace-expansion cache-miss
+173 silly packumentCache corgi:https://registry.npmjs.org/cookie cache-miss
+174 silly packumentCache corgi:https://registry.npmjs.org/express cache-miss
+175 silly packumentCache corgi:https://registry.npmjs.org/minimatch cache-miss
+176 silly packumentCache corgi:https://registry.npmjs.org/mongoose cache-miss
+177 silly packumentCache corgi:https://registry.npmjs.org/path-to-regexp cache-miss
+178 silly packumentCache corgi:https://registry.npmjs.org/picomatch cache-miss
+179 silly packumentCache corgi:https://registry.npmjs.org/qs cache-miss
+180 silly packumentCache corgi:https://registry.npmjs.org/send cache-miss
+181 silly packumentCache corgi:https://registry.npmjs.org/serve-static cache-miss
+182 http fetch GET 200 https://registry.npmjs.org/brace-expansion 103ms (cache revalidated)
+183 silly packumentCache corgi:https://registry.npmjs.org/brace-expansion set size:24623 disposed:false
+184 http fetch GET 200 https://registry.npmjs.org/serve-static 117ms (cache revalidated)
+185 silly packumentCache corgi:https://registry.npmjs.org/serve-static set size:58234 disposed:false
+186 http fetch GET 200 https://registry.npmjs.org/path-to-regexp 118ms (cache revalidated)
+187 silly packumentCache corgi:https://registry.npmjs.org/path-to-regexp set size:66575 disposed:false
+188 http fetch GET 200 https://registry.npmjs.org/body-parser 118ms (cache revalidated)
+189 silly packumentCache corgi:https://registry.npmjs.org/body-parser set size:78944 disposed:false
+190 http fetch GET 200 https://registry.npmjs.org/picomatch 119ms (cache revalidated)
+191 silly packumentCache corgi:https://registry.npmjs.org/picomatch set size:44414 disposed:false
+192 http fetch GET 200 https://registry.npmjs.org/minimatch 119ms (cache revalidated)
+193 silly packumentCache corgi:https://registry.npmjs.org/minimatch set size:168441 disposed:false
+194 http fetch GET 200 https://registry.npmjs.org/express 120ms (cache revalidated)
+195 silly packumentCache corgi:https://registry.npmjs.org/express set size:339376 disposed:false
+196 http fetch GET 200 https://registry.npmjs.org/cookie 131ms (cache revalidated)
+197 silly packumentCache corgi:https://registry.npmjs.org/cookie set size:23677 disposed:false
+198 http fetch GET 200 https://registry.npmjs.org/send 134ms (cache revalidated)
+199 silly packumentCache corgi:https://registry.npmjs.org/send set size:63171 disposed:false
+200 http fetch GET 200 https://registry.npmjs.org/qs 135ms (cache revalidated)
+201 silly packumentCache corgi:https://registry.npmjs.org/qs set size:146581 disposed:false
+202 http fetch GET 200 https://registry.npmjs.org/@napi-rs/canvas/-/canvas-0.1.80.tgz 460ms (cache miss)
+203 http fetch GET 200 https://registry.npmjs.org/mongoose 343ms (cache revalidated)
+204 silly packumentCache corgi:https://registry.npmjs.org/mongoose set size:1616273 disposed:false
+205 silly packumentCache corgi:https://registry.npmjs.org/nodemon cache-miss
+206 http fetch GET 200 https://registry.npmjs.org/nodemon 106ms (cache revalidated)
+207 silly packumentCache corgi:https://registry.npmjs.org/nodemon set size:282567 disposed:false
+208 silly packumentCache corgi:https://registry.npmjs.org/anymatch cache-miss
+209 silly packumentCache corgi:https://registry.npmjs.org/readdirp cache-miss
+210 http fetch GET 200 https://registry.npmjs.org/readdirp 147ms (cache revalidated)
+211 silly packumentCache corgi:https://registry.npmjs.org/readdirp set size:47123 disposed:false
+212 http fetch GET 200 https://registry.npmjs.org/anymatch 156ms (cache revalidated)
+213 silly packumentCache corgi:https://registry.npmjs.org/anymatch set size:18345 disposed:false
+214 http fetch GET 200 https://registry.npmjs.org/pdf-parse/-/pdf-parse-2.4.5.tgz 1665ms (cache miss)
+215 http fetch GET 200 https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-5.4.296.tgz 2046ms (cache miss)
+216 http fetch GET 200 https://registry.npmjs.org/@napi-rs/canvas-darwin-arm64/-/canvas-darwin-arm64-0.1.80.tgz 4298ms (cache miss)
+217 silly ADD node_modules/util-deprecate
+218 silly ADD node_modules/string_decoder
+219 silly ADD node_modules/@napi-rs/canvas-darwin-arm64
+220 silly ADD node_modules/pdfjs-dist
+221 silly ADD node_modules/@napi-rs/canvas
+222 silly ADD node_modules/typedarray
+223 silly ADD node_modules/readable-stream
+224 silly ADD node_modules/buffer-from
+225 silly ADD node_modules/streamsearch
+226 silly ADD node_modules/concat-stream
+227 silly ADD node_modules/busboy
+228 silly ADD node_modules/append-field
+229 silly ADD node_modules/pdf-parse
+230 silly ADD node_modules/multer
+231 verbose cwd /Users/abhishek/Documents/Bills/billsbackend
+232 verbose os Darwin 25.5.0
+233 verbose node v24.15.0
+234 verbose npm  v11.12.1
+235 verbose exit 0
+236 info ok

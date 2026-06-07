@@ -5,8 +5,12 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
 const app = express();
 const port = process.env.PORT || 3000;
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 
@@ -438,6 +442,282 @@ app.post('/api/invoices', async (req, res) => {
       console.error('Error saving invoice:', error);
       res.status(500).json({ error: 'An error occurred while saving the invoice' });
   }
+});
+
+// Helper for backend number to words conversion (fallback)
+const convertNumberToWordsBackend = (number) => {
+  if (isNaN(number) || number === null || number === undefined) return '';
+
+  let num = parseFloat(number);
+  if (num < 0) return 'Negative ' + convertNumberToWordsBackend(Math.abs(num));
+  if (num === 0) return 'Zero';
+
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 
+                'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  const convertToWordsLessThanThousand = (val) => {
+    let words = '';
+    if (val >= 100) {
+      words += ones[Math.floor(val / 100)] + ' Hundred ';
+      val %= 100;
+    }
+    if (val >= 20) {
+      words += tens[Math.floor(val / 10)] + ' ';
+      val %= 10;
+    }
+    if (val > 0) {
+      words += ones[val] + ' ';
+    }
+    return words.trim();
+  };
+
+  let integerPart = Math.floor(num);
+  let decimalPart = Math.round((num - integerPart) * 100);
+  let result = '';
+
+  if (integerPart >= 10000000) { // Crore (1,00,00,000)
+    const crore = Math.floor(integerPart / 10000000);
+    result += convertToWordsLessThanThousand(crore) + ' Crore ';
+    integerPart %= 10000000;
+  }
+  if (integerPart >= 100000) { // Lakh (1,00,000)
+    const lakh = Math.floor(integerPart / 100000);
+    result += convertToWordsLessThanThousand(lakh) + ' Lakh ';
+    integerPart %= 100000;
+  }
+  if (integerPart >= 1000) { // Thousand (1,000)
+    const thousand = Math.floor(integerPart / 1000);
+    result += convertToWordsLessThanThousand(thousand) + ' Thousand ';
+    integerPart %= 1000;
+  }
+  if (integerPart > 0) {
+    result += convertToWordsLessThanThousand(integerPart);
+  }
+
+  let words = result.trim();
+
+  // Convert decimal part to words (Paisa)
+  if (decimalPart > 0) {
+    if (words !== '') {
+      words += ' and ' + convertToWordsLessThanThousand(decimalPart) + ' Paisa';
+    } else {
+      words = convertToWordsLessThanThousand(decimalPart) + ' Paisa';
+    }
+  }
+
+  return words.trim();
+};
+
+// Bulk Upload PDFs Endpoint
+app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) => {
+  const files = req.files;
+  if (!files || files.length === 0) {
+    return res.status(400).json({ error: 'No files were uploaded.' });
+  }
+
+  const results = [];
+  const errors = [];
+
+  for (const file of files) {
+    try {
+      // 1. Extract text from PDF buffer
+      const data = await pdfParse(file.buffer);
+      const text = data.text;
+
+      // 2. Parse details
+      const cleanText = text.replace(/\r/g, '').trim();
+
+      // Invoice Number
+      let invoiceNo = '';
+      const noMatch = cleanText.match(/(?:Invoice\s*No|Bill\s*No)[.:\s]+([A-Za-z0-9-/]+)/i);
+      if (noMatch) invoiceNo = noMatch[1].trim();
+      else {
+        invoiceNo = 'TEMP-' + Math.floor(100 + Math.random() * 900);
+      }
+
+      // Invoice Date
+      let invoiceDate = '';
+      const dateMatch = cleanText.match(/(?:Invoice\s*Date|Date)[.:\s]+([\d-]{10})/i) || 
+                        cleanText.match(/(?:Invoice\s*Date|Date)[.:\s]+([\d-/]{8,10})/i);
+      if (dateMatch) {
+        const rawDate = dateMatch[1].trim();
+        if (rawDate.includes('/')) {
+          const parts = rawDate.split('/');
+          if (parts[0].length === 4) { // YYYY/MM/DD
+            invoiceDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
+          } else { // DD/MM/YYYY
+            invoiceDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+          }
+        } else {
+          invoiceDate = rawDate;
+        }
+      } else {
+        invoiceDate = new Date().toISOString().split('T')[0];
+      }
+
+      // Recipient Company Name
+      let companyName = '';
+      const msMatch = cleanText.match(/M\/s[.:\s]+([^\n]+)/i) || 
+                      cleanText.match(/M\/S[.:\s]+([^\n]+)/i) ||
+                      cleanText.match(/(?:Recipient|Bill\s*To|To)[.:\s]+([^\n]+)/i);
+      if (msMatch) {
+        companyName = msMatch[1].trim();
+      } else {
+        companyName = 'Unknown Recipient';
+      }
+
+      // GSTIN
+      let gstin = '';
+      const gstinMatch = cleanText.match(/GSTIN\s*(?:No)?[.:\s]+([A-Z0-9]{15})/i) ||
+                         cleanText.match(/GSTIN\s*(?:No)?[.:\s]+(\S+)/i);
+      if (gstinMatch) gstin = gstinMatch[1].trim().toUpperCase();
+
+      // State & State Code
+      let state = '';
+      const stateMatch = cleanText.match(/State[.:\s]+([a-zA-Z\s]+?)(?=\s*State\s*Code|\n|$)/i);
+      if (stateMatch) state = stateMatch[1].trim();
+
+      let stateCode = '';
+      const codeMatch = cleanText.match(/(?:State\s*Code|Code)[.:\s]+(\d+)/i);
+      if (codeMatch) stateCode = codeMatch[1].trim();
+
+      // Freight
+      let freightCharges = 0;
+      const freightMatch = cleanText.match(/(?:Freight\s*Charges|Freight)[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
+      if (freightMatch) freightCharges = parseFloat(freightMatch[1]);
+
+      // CGST
+      let cgst = 0;
+      const cgstMatch = cleanText.match(/(?:CGST|Central\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
+      if (cgstMatch) cgst = parseFloat(cgstMatch[1]);
+
+      // SGST
+      let sgst = 0;
+      const sgstMatch = cleanText.match(/(?:SGST|State\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
+      if (sgstMatch) sgst = parseFloat(sgstMatch[1]);
+
+      // IGST
+      let igst = 0;
+      const igstMatch = cleanText.match(/(?:IGST|Integrated\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
+      if (igstMatch) igst = parseFloat(igstMatch[1]);
+
+      // Grand Total
+      let grandTotal = 0;
+      const grandTotalMatch = cleanText.match(/(?:Grand\s*Total|Total\s*Payable|Total)[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
+      if (grandTotalMatch) grandTotal = parseFloat(grandTotalMatch[1]);
+
+      // Grand Total in Words
+      let grandTotalInWords = '';
+      const wordsMatch = cleanText.match(/(?:Grand\s*Total|Total\s*Amount)\s*\(?In\s*Words\)?[:.\s]+([^\n]+)/i);
+      if (wordsMatch) {
+        grandTotalInWords = wordsMatch[1].trim();
+      } else {
+        grandTotalInWords = convertNumberToWordsBackend(grandTotal);
+      }
+
+      // Parse items list
+      let itemsText = '';
+      const tableStartIdx = cleanText.search(/Sl\.?\s*No\.?/i);
+      const tableEndIdx = cleanText.search(/(?:Subtotal|Freight\s*Charges|Freight|Total\s*Amount)/i);
+      
+      if (tableStartIdx !== -1 && tableEndIdx !== -1 && tableEndIdx > tableStartIdx) {
+        itemsText = cleanText.substring(tableStartIdx, tableEndIdx);
+      } else {
+        itemsText = cleanText;
+      }
+
+      const items = [];
+      const lines = itemsText.split('\n').map(l => l.trim()).filter(Boolean);
+      
+      lines.forEach(line => {
+        const match = line.match(/^(?:\d+[\s.]*)?(.+?)\s+(\w+)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
+        if (match) {
+          const description = match[1].trim();
+          const hsnAsc = match[2].trim();
+          const quantity = parseInt(match[3]) || 0;
+          const rate = parseFloat(match[4]) || 0;
+          const totalValue = parseFloat(match[5]) || 0;
+          
+          if (description.toLowerCase() !== 'description' && hsnAsc.toLowerCase() !== 'hsn/asc') {
+            items.push({ description, hsnAsc, quantity, rate, totalValue });
+          }
+        } else {
+          const matchNoHsn = line.match(/^(?:\d+[\s.]*)?(.+?)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
+          if (matchNoHsn) {
+            const description = matchNoHsn[1].trim();
+            const quantity = parseInt(matchNoHsn[2]) || 0;
+            const rate = parseFloat(matchNoHsn[3]) || 0;
+            const totalValue = parseFloat(matchNoHsn[4]) || 0;
+            if (description.toLowerCase() !== 'description' && description.toLowerCase() !== 'sl.no.') {
+              items.push({ description, hsnAsc: '-', quantity, rate, totalValue });
+            }
+          }
+        }
+      });
+
+      // Default item if none was parsed
+      if (items.length === 0) {
+        items.push({
+          description: 'Sales of Services',
+          hsnAsc: '9983',
+          quantity: 1,
+          rate: grandTotal - freightCharges - cgst - sgst - igst,
+          totalValue: grandTotal - freightCharges - cgst - sgst - igst
+        });
+      }
+
+      // Check if invoice number is duplicate in database
+      const isDuplicate = await Invoice.findOne({ invoiceNo });
+      if (isDuplicate) {
+        errors.push({
+          file: file.originalname,
+          error: `Duplicate invoice number: ${invoiceNo} already exists in database.`
+        });
+        continue;
+      }
+
+      const invoice = new Invoice({
+        companyName,
+        gstin,
+        state,
+        stateCode,
+        invoiceNo,
+        invoiceDate,
+        items,
+        freightCharges,
+        cgst,
+        sgst,
+        igst,
+        grandTotal,
+        grandTotalInWords
+      });
+
+      const savedInvoice = await invoice.save();
+      results.push({
+        file: file.originalname,
+        invoiceNo: savedInvoice.invoiceNo,
+        companyName: savedInvoice.companyName,
+        grandTotal: savedInvoice.grandTotal
+      });
+
+    } catch (err) {
+      console.error(`Error parsing file ${file.originalname}:`, err);
+      errors.push({
+        file: file.originalname,
+        error: err.message || 'Unable to parse PDF text.'
+      });
+    }
+  }
+
+  res.json({
+    success: true,
+    totalUploaded: files.length,
+    successCount: results.length,
+    failedCount: errors.length,
+    results,
+    errors
+  });
 });
 
 // Get all invoices
