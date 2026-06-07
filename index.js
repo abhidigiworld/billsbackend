@@ -792,3 +792,118 @@ app.get('/api/employees/my-profile', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+// Get All Users Endpoint (Admin Only)
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find({}, '-password');
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update User Endpoint (Admin Only)
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const { name, email, role, isVerified } = req.body;
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { name, email, role, isVerified },
+      { new: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete User Endpoint (Admin Only)
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const deletedUser = await User.findByIdAndDelete(req.params.id);
+    if (!deletedUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update Salary Slip Endpoint (Admin Only)
+app.put('/api/salary-slips/:id', async (req, res) => {
+  try {
+    const salarySlipData = req.body;
+    
+    // Recalculate using strict intermediate flooring
+    const workDays = parseInt(salarySlipData.workDays || 0);
+    const otHours = parseFloat(salarySlipData.otHours || 0);
+    const advance = Math.floor(parseFloat(salarySlipData.advance || 0));
+    const esic = Math.floor(parseFloat(salarySlipData.esic || 0));
+    const lunchDays = parseInt(salarySlipData.lunchDays || 0);
+    const lunchRate = Math.floor(parseFloat(salarySlipData.lunchRate || 0));
+    const shiftHours = parseInt(salarySlipData.shiftHours || 8);
+    
+    // Query gross salary of employee
+    const employee = await Employee.findById(salarySlipData.employeeId);
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee profile not found' });
+    }
+    
+    const monthOfSalary = salarySlipData.monthOfSalary || '';
+    const [monthName, yearStr] = monthOfSalary.split(' ');
+    const monthMap = {
+      'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+      'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
+    };
+    const monthNum = monthMap[monthName] || 1;
+    const yearNum = parseInt(yearStr) || new Date().getFullYear();
+    const calendarDays = new Date(yearNum, monthNum, 0).getDate();
+    
+    // Perform intermediate flooring
+    const dailyRate = Math.floor(employee.grossSalary / calendarDays);
+    const salaryByWorkDays = Math.floor(workDays * dailyRate);
+    const hourlyOtRate = Math.floor(dailyRate / shiftHours);
+    const overtimeSalary = Math.floor(otHours * hourlyOtRate);
+    const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary);
+    const lunchDeduction = Math.floor(lunchDays * lunchRate);
+    const inHandSalary = Math.floor(totalSalary - esic - advance - lunchDeduction);
+    
+    const updatedSalarySlip = await SalarySlip.findByIdAndUpdate(
+      req.params.id,
+      {
+        workDays,
+        salaryByWorkDays,
+        overtimeHours: otHours,
+        overtimeSalary,
+        totalSalary,
+        advance,
+        esic,
+        lunchDays,
+        lunchRate,
+        lunchDeduction,
+        shiftHours,
+        inHandSalary,
+        monthOfSalary
+      },
+      { new: true }
+    );
+    
+    if (!updatedSalarySlip) {
+      return res.status(404).json({ error: 'Salary slip not found' });
+    }
+    res.json(updatedSalarySlip);
+  } catch (error) {
+    console.error('Error updating salary slip:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
