@@ -1526,6 +1526,9 @@ const salarySlipSchema = new mongoose.Schema({
   salaryByWorkDays: { type: Number, required: true },
   overtimeHours: { type: Number, default: 0 },
   overtimeSalary: { type: Number, default: 0 },
+  nightShiftDays: { type: Number, default: 0 },
+  nightShiftRate: { type: Number, default: 0 },
+  nightShiftAllowance: { type: Number, default: 0 },
   totalSalary: { type: Number, required: true },
   advance: { type: Number, default: 0 },
   esic: { type: Number, default: 0 },
@@ -1555,7 +1558,10 @@ app.post('/api/salary-slips', async (req, res) => {
     const salarySlipData = req.body;
     const salaryByWorkDays = Math.floor(salarySlipData.salaryByWorkDays || 0);
     const overtimeSalary = Math.floor(salarySlipData.overtimeSalary || 0);
-    const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary);
+    const nightShiftDays = parseInt(salarySlipData.nightShiftDays || 0);
+    const nightShiftRate = Math.floor(parseFloat(salarySlipData.nightShiftRate || 0));
+    const nightShiftAllowance = Math.floor(nightShiftDays * nightShiftRate);
+    const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary + nightShiftAllowance);
     const esic = Math.floor(salarySlipData.esic || 0);
     const advance = Math.floor(salarySlipData.advance || 0);
     const lunchDeduction = Math.floor(salarySlipData.lunchDeduction || 0);
@@ -1565,6 +1571,9 @@ app.post('/api/salary-slips', async (req, res) => {
       ...salarySlipData,
       salaryByWorkDays,
       overtimeSalary,
+      nightShiftDays,
+      nightShiftRate,
+      nightShiftAllowance,
       totalSalary,
       esic,
       advance,
@@ -1873,12 +1882,14 @@ app.put('/api/salary-slips/:id', async (req, res) => {
     const yearNum = parseInt(yearStr) || new Date().getFullYear();
     const calendarDays = new Date(yearNum, monthNum, 0).getDate();
     
-    // Perform intermediate flooring
+    const nightShiftDays = parseInt(salarySlipData.nightShiftDays || 0);
+    const nightShiftRate = Math.floor(parseFloat(salarySlipData.nightShiftRate || 0));
+    const nightShiftAllowance = Math.floor(nightShiftDays * nightShiftRate);
     const dailyRate = Math.floor(employee.grossSalary / calendarDays);
     const salaryByWorkDays = Math.floor(workDays * dailyRate);
     const hourlyOtRate = Math.floor(dailyRate / shiftHours);
     const overtimeSalary = Math.floor(otHours * hourlyOtRate);
-    const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary);
+    const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary + nightShiftAllowance);
     const lunchDeduction = Math.floor(lunchDays * lunchRate);
     const inHandSalary = Math.floor(totalSalary - esic - advance - lunchDeduction);
     
@@ -1889,6 +1900,9 @@ app.put('/api/salary-slips/:id', async (req, res) => {
         salaryByWorkDays,
         overtimeHours: otHours,
         overtimeSalary,
+        nightShiftDays,
+        nightShiftRate,
+        nightShiftAllowance,
         totalSalary,
         advance,
         esic,
