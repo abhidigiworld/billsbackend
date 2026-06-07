@@ -546,143 +546,227 @@ app.post('/api/invoices/bulk-upload', upload.array('files'), async (req, res) =>
       // 2. Parse details
       const cleanText = text.replace(/\r/g, '').trim();
 
-      // Invoice Number
+      // Invoice details variables
       let invoiceNo = '';
-      const noMatch = cleanText.match(/(?:Invoice\s*No|Bill\s*No)[.:\s]+([A-Za-z0-9-/]+)/i);
-      if (noMatch) invoiceNo = noMatch[1].trim();
-      else {
-        invoiceNo = 'TEMP-' + Math.floor(100 + Math.random() * 900);
-      }
-
-      // Invoice Date
       let invoiceDate = '';
-      const dateMatch = cleanText.match(/(?:Invoice\s*Date|Date)[.:\s]+([\d-]{10})/i) || 
-                        cleanText.match(/(?:Invoice\s*Date|Date)[.:\s]+([\d-/]{8,10})/i);
-      if (dateMatch) {
-        const rawDate = dateMatch[1].trim();
-        if (rawDate.includes('/')) {
-          const parts = rawDate.split('/');
-          if (parts[0].length === 4) { // YYYY/MM/DD
-            invoiceDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
-          } else { // DD/MM/YYYY
-            invoiceDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-          }
-        } else {
-          invoiceDate = rawDate;
-        }
-      } else {
-        invoiceDate = new Date().toISOString().split('T')[0];
-      }
-
-      // Recipient Company Name
       let companyName = '';
-      const msMatch = cleanText.match(/M\/s[.:\s]+([^\n]+)/i) || 
-                      cleanText.match(/M\/S[.:\s]+([^\n]+)/i) ||
-                      cleanText.match(/(?:Recipient|Bill\s*To|To)[.:\s]+([^\n]+)/i);
-      if (msMatch) {
-        companyName = msMatch[1].trim();
-      } else {
-        companyName = 'Unknown Recipient';
-      }
-
-      // GSTIN
       let gstin = '';
-      const gstinMatch = cleanText.match(/GSTIN\s*(?:No)?[.:\s]+([A-Z0-9]{15})/i) ||
-                         cleanText.match(/GSTIN\s*(?:No)?[.:\s]+(\S+)/i);
-      if (gstinMatch) gstin = gstinMatch[1].trim().toUpperCase();
-
-      // State & State Code
       let state = '';
-      const stateMatch = cleanText.match(/State[.:\s]+([a-zA-Z\s]+?)(?=\s*State\s*Code|\n|$)/i);
-      if (stateMatch) state = stateMatch[1].trim();
-
       let stateCode = '';
-      const codeMatch = cleanText.match(/(?:State\s*Code|Code)[.:\s]+(\d+)/i);
-      if (codeMatch) stateCode = codeMatch[1].trim();
-
-      // Freight
       let freightCharges = 0;
-      const freightMatch = cleanText.match(/(?:Freight\s*Charges|Freight)[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
-      if (freightMatch) freightCharges = parseFloat(freightMatch[1]);
-
-      // CGST
       let cgst = 0;
-      const cgstMatch = cleanText.match(/(?:CGST|Central\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
-      if (cgstMatch) cgst = parseFloat(cgstMatch[1]);
-
-      // SGST
       let sgst = 0;
-      const sgstMatch = cleanText.match(/(?:SGST|State\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
-      if (sgstMatch) sgst = parseFloat(sgstMatch[1]);
-
-      // IGST
       let igst = 0;
-      const igstMatch = cleanText.match(/(?:IGST|Integrated\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
-      if (igstMatch) igst = parseFloat(igstMatch[1]);
-
-      // Grand Total
       let grandTotal = 0;
-      const grandTotalMatch = cleanText.match(/(?:Grand\s*Total|Total\s*Payable|Total)[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
-      if (grandTotalMatch) grandTotal = parseFloat(grandTotalMatch[1]);
-
-      // Grand Total in Words
       let grandTotalInWords = '';
-      const wordsMatch = cleanText.match(/(?:Grand\s*Total|Total\s*Amount)\s*\(?In\s*Words\)?[:.\s]+([^\n]+)/i);
-      if (wordsMatch) {
-        grandTotalInWords = wordsMatch[1].trim();
-      } else {
-        grandTotalInWords = convertNumberToWordsBackend(grandTotal);
-      }
-
-      // Parse items list
-      let itemsText = '';
-      const tableStartIdx = cleanText.search(/Sl\.?\s*No\.?/i);
-      const tableEndIdx = cleanText.search(/(?:Subtotal|Freight\s*Charges|Freight|Total\s*Amount)/i);
-      
-      if (tableStartIdx !== -1 && tableEndIdx !== -1 && tableEndIdx > tableStartIdx) {
-        itemsText = cleanText.substring(tableStartIdx, tableEndIdx);
-      } else {
-        itemsText = cleanText;
-      }
-
       const items = [];
-      const lines = itemsText.split('\n').map(l => l.trim()).filter(Boolean);
+
+      // Initial check to see if we should call AI fallback
+      const noMatch = cleanText.match(/(?:Invoice\s*No|Bill\s*No)[.:\s]+([A-Za-z0-9-/]+)/i);
+      const grandTotalMatch = cleanText.match(/(?:Grand\s*Total|Total\s*Amount|Total\s*Payable|Total)[.:\s]+(?:₹|Rs)?\s*([\d,]+(?:\.\d+)?)/i);
       
-      lines.forEach(line => {
-        const match = line.match(/^(?:\d+[\s.]*)?(.+?)\s+(\w+)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
-        if (match) {
-          const description = match[1].trim();
-          const hsnAsc = match[2].trim();
-          const quantity = parseInt(match[3]) || 0;
-          const rate = parseFloat(match[4]) || 0;
-          const totalValue = parseFloat(match[5]) || 0;
-          
-          if (description.toLowerCase() !== 'description' && hsnAsc.toLowerCase() !== 'hsn/asc') {
-            items.push({ description, hsnAsc, quantity, rate, totalValue });
+      const regexInvoiceNo = noMatch ? noMatch[1].trim() : '';
+      let regexGrandTotal = 0;
+      if (grandTotalMatch) {
+        regexGrandTotal = parseFloat(grandTotalMatch[1].replace(/,/g, '')) || 0;
+      }
+
+      const hasGroqKey = !!process.env.GROQ_API_KEY;
+      let parsedByAI = false;
+
+      if (hasGroqKey && (!regexInvoiceNo || regexGrandTotal === 0)) {
+        try {
+          console.log(`[AI Fallback] Parsing ${file.originalname} using Groq AI...`);
+          const maskedText = maskSensitiveData(cleanText);
+          const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are a structured invoice data extractor. Read the raw text of the invoice and return a JSON object with the following fields: invoiceNo (string), invoiceDate (string YYYY-MM-DD), companyName (string), gstin (string), state (string), stateCode (string), freightCharges (number), cgst (number), sgst (number), igst (number), grandTotal (number), grandTotalInWords (string), items (array of objects with fields: description, hsnAsc, quantity, rate, totalValue). Ensure all numeric fields are numbers. Output only the JSON object, do not explain or include markdown blocks.'
+                },
+                {
+                  role: 'user',
+                  content: maskedText
+                }
+              ],
+              temperature: 0.1,
+              response_format: { type: "json_object" },
+              max_tokens: 1500
+            })
+          });
+
+          if (aiResponse.ok) {
+            const aiData = await aiResponse.json();
+            const rawContent = aiData.choices[0].message.content.trim();
+            const extracted = JSON.parse(rawContent);
+
+            invoiceNo = extracted.invoiceNo || regexInvoiceNo || 'TEMP-' + Math.floor(100 + Math.random() * 900);
+            invoiceDate = extracted.invoiceDate || new Date().toISOString().split('T')[0];
+            companyName = extracted.companyName || 'Unknown Recipient';
+            gstin = (extracted.gstin || '').toUpperCase();
+            state = extracted.state || '';
+            stateCode = extracted.stateCode || '';
+            freightCharges = parseFloat(extracted.freightCharges) || 0;
+            cgst = parseFloat(extracted.cgst) || 0;
+            sgst = parseFloat(extracted.sgst) || 0;
+            igst = parseFloat(extracted.igst) || 0;
+            grandTotal = parseFloat(extracted.grandTotal) || 0;
+            grandTotalInWords = extracted.grandTotalInWords || convertNumberToWordsBackend(grandTotal);
+
+            if (Array.isArray(extracted.items)) {
+              extracted.items.forEach(item => {
+                items.push({
+                  description: item.description || 'Service',
+                  hsnAsc: item.hsnAsc || '-',
+                  quantity: parseInt(item.quantity) || 1,
+                  rate: parseFloat(item.rate) || 0,
+                  totalValue: parseFloat(item.totalValue) || 0
+                });
+              });
+            }
+            parsedByAI = true;
+            console.log(`[AI Fallback] Successfully parsed ${file.originalname} via Groq.`);
+          } else {
+            console.warn('[AI Fallback] Groq API returned non-OK status. Falling back to regex.');
+          }
+        } catch (aiErr) {
+          console.error('[AI Fallback] Failed to parse using Groq AI:', aiErr);
+        }
+      }
+
+      if (!parsedByAI) {
+        // 2. Parse details via Regex
+        if (noMatch) invoiceNo = noMatch[1].trim();
+        else {
+          invoiceNo = 'TEMP-' + Math.floor(100 + Math.random() * 900);
+        }
+
+        // Invoice Date
+        const dateMatch = cleanText.match(/(?:Invoice\s*Date|Date)[.:\s]+([\d-]{10})/i) || 
+                          cleanText.match(/(?:Invoice\s*Date|Date)[.:\s]+([\d-/]{8,10})/i);
+        if (dateMatch) {
+          const rawDate = dateMatch[1].trim();
+          if (rawDate.includes('/')) {
+            const parts = rawDate.split('/');
+            if (parts[0].length === 4) { // YYYY/MM/DD
+              invoiceDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
+            } else { // DD/MM/YYYY
+              invoiceDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+          } else {
+            invoiceDate = rawDate;
           }
         } else {
-          const matchNoHsn = line.match(/^(?:\d+[\s.]*)?(.+?)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
-          if (matchNoHsn) {
-            const description = matchNoHsn[1].trim();
-            const quantity = parseInt(matchNoHsn[2]) || 0;
-            const rate = parseFloat(matchNoHsn[3]) || 0;
-            const totalValue = parseFloat(matchNoHsn[4]) || 0;
-            if (description.toLowerCase() !== 'description' && description.toLowerCase() !== 'sl.no.') {
-              items.push({ description, hsnAsc: '-', quantity, rate, totalValue });
+          invoiceDate = new Date().toISOString().split('T')[0];
+        }
+
+        // Recipient Company Name
+        const msMatch = cleanText.match(/M\/s[.:\s]+([^\n]+)/i) || 
+                        cleanText.match(/M\/S[.:\s]+([^\n]+)/i) ||
+                        cleanText.match(/(?:Recipient|Bill\s*To|To)[.:\s]+([^\n]+)/i);
+        if (msMatch) {
+          companyName = msMatch[1].trim();
+        } else {
+          companyName = 'Unknown Recipient';
+        }
+
+        // GSTIN
+        const gstinMatch = cleanText.match(/GSTIN\s*(?:No)?[.:\s]+([A-Z0-9]{15})/i) ||
+                           cleanText.match(/GSTIN\s*(?:No)?[.:\s]+(\S+)/i);
+        if (gstinMatch) gstin = gstinMatch[1].trim().toUpperCase();
+
+        // State & State Code
+        const stateMatch = cleanText.match(/State[.:\s]+([a-zA-Z\s]+?)(?=\s*State\s*Code|\n|$)/i);
+        if (stateMatch) state = stateMatch[1].trim();
+
+        const codeMatch = cleanText.match(/(?:State\s*Code|Code)[.:\s]+(\d+)/i);
+        if (codeMatch) stateCode = codeMatch[1].trim();
+
+        // Freight
+        const freightMatch = cleanText.match(/(?:Freight\s*Charges|Freight)[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
+        if (freightMatch) freightCharges = parseFloat(freightMatch[1]);
+
+        // CGST
+        const cgstMatch = cleanText.match(/(?:CGST|Central\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
+        if (cgstMatch) cgst = parseFloat(cgstMatch[1]);
+
+        // SGST
+        const sgstMatch = cleanText.match(/(?:SGST|State\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
+        if (sgstMatch) sgst = parseFloat(sgstMatch[1]);
+
+        // IGST
+        const igstMatch = cleanText.match(/(?:IGST|Integrated\s*GST)\s*(?:\(?\d*%\)?)?[.:\s]+(?:₹|Rs)?\s*(\d+(?:\.\d+)?)/i);
+        if (igstMatch) igst = parseFloat(igstMatch[1]);
+
+        // Grand Total
+        if (grandTotalMatch) {
+          grandTotal = parseFloat(grandTotalMatch[1].replace(/,/g, '')) || 0;
+        }
+
+        // Grand Total in Words
+        const wordsMatch = cleanText.match(/(?:Grand\s*Total|Total\s*Amount)\s*\(?In\s*Words\)?[:.\s]+([^\n]+)/i);
+        if (wordsMatch) {
+          grandTotalInWords = wordsMatch[1].trim();
+        } else {
+          grandTotalInWords = convertNumberToWordsBackend(grandTotal);
+        }
+
+        // Parse items list
+        let itemsText = '';
+        const tableStartIdx = cleanText.search(/Sl\.?\s*No\.?/i);
+        const tableEndIdx = cleanText.search(/(?:Subtotal|Freight\s*Charges|Freight|Total\s*Amount)/i);
+        
+        if (tableStartIdx !== -1 && tableEndIdx !== -1 && tableEndIdx > tableStartIdx) {
+          itemsText = cleanText.substring(tableStartIdx, tableEndIdx);
+        } else {
+          itemsText = cleanText;
+        }
+
+        const lines = itemsText.split('\n').map(l => l.trim()).filter(Boolean);
+        
+        lines.forEach(line => {
+          const match = line.match(/^(?:\d+[\s.]*)?(.+?)\s+(\w+)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
+          if (match) {
+            const description = match[1].trim();
+            const hsnAsc = match[2].trim();
+            const quantity = parseInt(match[3]) || 0;
+            const rate = parseFloat(match[4]) || 0;
+            const totalValue = parseFloat(match[5]) || 0;
+            
+            if (description.toLowerCase() !== 'description' && hsnAsc.toLowerCase() !== 'hsn/asc') {
+              items.push({ description, hsnAsc, quantity, rate, totalValue });
+            }
+          } else {
+            const matchNoHsn = line.match(/^(?:\d+[\s.]*)?(.+?)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
+            if (matchNoHsn) {
+              const description = matchNoHsn[1].trim();
+              const quantity = parseInt(matchNoHsn[2]) || 0;
+              const rate = parseFloat(matchNoHsn[3]) || 0;
+              const totalValue = parseFloat(matchNoHsn[4]) || 0;
+              if (description.toLowerCase() !== 'description' && description.toLowerCase() !== 'sl.no.') {
+                items.push({ description, hsnAsc: '-', quantity, rate, totalValue });
+              }
             }
           }
-        }
-      });
-
-      // Default item if none was parsed
-      if (items.length === 0) {
-        items.push({
-          description: 'Sales of Services',
-          hsnAsc: '9983',
-          quantity: 1,
-          rate: grandTotal - freightCharges - cgst - sgst - igst,
-          totalValue: grandTotal - freightCharges - cgst - sgst - igst
         });
+
+        // Default item if none was parsed
+        if (items.length === 0) {
+          items.push({
+            description: 'Sales of Services',
+            hsnAsc: '9983',
+            quantity: 1,
+            rate: grandTotal - freightCharges - cgst - sgst - igst,
+            totalValue: grandTotal - freightCharges - cgst - sgst - igst
+          });
+        }
       }
 
       // Check if invoice number is duplicate in database
@@ -788,6 +872,119 @@ app.delete('/api/invoices/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting invoice:', error);
     res.status(500).json({ error: 'An error occurred while deleting the invoice' });
+  }
+});
+// Mask sensitive corporate or employee data
+function maskSensitiveData(text) {
+  if (!text) return '';
+  let masked = text;
+  
+  // 1. Bank Account numbers (typically 9-18 digits)
+  masked = masked.replace(/\b\d{9,18}\b/g, ' [REDACTED_ACCOUNT] ');
+  
+  // 2. Indian Financial System Code (IFSC) (e.g. SBIN0001234)
+  masked = masked.replace(/\b[A-Za-z]{4}0[A-Za-z0-9]{6}\b/g, ' [REDACTED_IFSC] ');
+  
+  // 3. Indian Permanent Account Number (PAN) (e.g. ABCDE1234F)
+  masked = masked.replace(/\b[A-Za-z]{5}\d{4}[A-Za-z]\b/g, ' [REDACTED_PAN] ');
+  
+  // 4. Phone numbers (10 digit mobile, optionally with country code)
+  masked = masked.replace(/(?:\+91[\-\s]?)?[6-9]\d{9}\b/g, ' [REDACTED_PHONE] ');
+  
+  // 5. Aadhaar card numbers (12 digits, often formatted as 4-4-4)
+  masked = masked.replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, ' [REDACTED_AADHAAR] ');
+
+  return masked;
+}
+
+// In-memory rate limiting cache for AI chat
+const rateLimitCache = new Map();
+
+const aiRateLimiter = (req, res, next) => {
+  const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const now = Date.now();
+  const windowMs = 60 * 1000; // 1 minute
+  const maxRequests = 5;
+
+  if (!rateLimitCache.has(ip)) {
+    rateLimitCache.set(ip, []);
+  }
+
+  const timestamps = rateLimitCache.get(ip).filter(t => now - t < windowMs);
+  timestamps.push(now);
+  rateLimitCache.set(ip, timestamps);
+
+  if (timestamps.length > maxRequests) {
+    return res.status(429).json({
+      error: 'You have reached the limit of 5 queries per minute. Please wait a moment before sending another message.'
+    });
+  }
+
+  next();
+};
+
+// AI Chat Copilot endpoint
+app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
+  const { messages } = req.body;
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'Messages are required and must be an array.' });
+  }
+
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    console.warn('GROQ_API_KEY is not defined. Returning a stubbed helpful response.');
+    return res.json({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: 'Hello! I am Sakshi AI. Currently, the Groq API key is not configured in the backend, but I am ready to help you manage invoices, track attendance, and draft emails once it is set up!'
+          }
+        }
+      ]
+    });
+  }
+
+  // Cap message history to last 6 messages (3 turns) to control token usage
+  const capMessages = messages.slice(-6);
+
+  // Mask sensitive information in user messages before sending to AI
+  const sanitizedMessages = capMessages.map(msg => ({
+    role: msg.role,
+    content: maskSensitiveData(msg.content)
+  }));
+
+  const systemPrompt = {
+    role: 'system',
+    content: 'You are Sakshi AI, a secure corporate billing and payroll assistant for Sakshi Enterprises. You help users draft emails (e.g. invoice sending, payment reminders, salary slip notices), explain billing and Indian taxation concepts (CGST, SGST, IGST, HSN codes), and guide them on how to navigate this invoice and payroll system. For security, never ask for or process passwords, bank credentials, or private personal identifiers. Be concise, polite, and professional.'
+  };
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [systemPrompt, ...sanitizedMessages],
+        temperature: 0.3,
+        max_tokens: 800
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Groq API error:', errText);
+      return res.status(502).json({ error: 'Failed to communicate with AI service. Please try again.' });
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Error in AI Chat API:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
