@@ -1125,7 +1125,7 @@ const attendanceSchema = new mongoose.Schema({
   date: { type: String, required: true }, // YYYY-MM-DD
   checkIn: { type: Date },
   checkOut: { type: Date },
-  status: { type: String, enum: ['Present', 'Absent', 'Leave'], default: 'Present' }
+  status: { type: String, enum: ['Present', 'Absent', 'Leave', 'Holiday'], default: 'Absent' }
 });
 
 const Attendance = mongoose.model('Attendance', attendanceSchema);
@@ -1639,4 +1639,60 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+// Blanket Mark Attendance Endpoint
+app.post('/api/attendance/blanket-mark', async (req, res) => {
+  const { date, status, checkIn, checkOut } = req.body;
+
+  if (!date || !status) {
+    return res.status(400).json({ success: false, message: 'Date and Status are required fields.' });
+  }
+
+  try {
+    const employees = await Employee.find();
+    if (!employees || employees.length === 0) {
+      return res.status(400).json({ success: false, message: 'No employees found to register attendance.' });
+    }
+
+    let checkInDate = null;
+    let checkOutDate = null;
+
+    if (status === 'Present') {
+      if (checkIn) {
+        checkInDate = new Date(`${date}T${checkIn}:00`);
+      } else {
+        checkInDate = new Date(`${date}T09:00:00`);
+      }
+      if (checkOut) {
+        checkOutDate = new Date(`${date}T${checkOut}:00`);
+      } else {
+        checkOutDate = new Date(`${date}T17:00:00`);
+      }
+    }
+
+    const operations = employees.map(emp => {
+      return {
+        updateOne: {
+          filter: { employeeId: emp._id, date },
+          update: {
+            $set: {
+              status,
+              checkIn: checkInDate,
+              checkOut: checkOutDate
+            }
+          },
+          upsert: true
+        }
+      };
+    });
+
+    await Attendance.bulkWrite(operations);
+
+    res.status(200).json({ success: true, message: `Blanket attendance updated for all active employees on ${date}!` });
+  } catch (error) {
+    console.error('Error in blanket-mark attendance:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 
