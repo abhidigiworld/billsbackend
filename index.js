@@ -1448,6 +1448,8 @@ const attendanceSchema = new mongoose.Schema({
   date: { type: String, required: true }, // YYYY-MM-DD
   checkIn: { type: Date },
   checkOut: { type: Date },
+  nightCheckIn: { type: Date },
+  nightCheckOut: { type: Date },
   status: { type: String, enum: ['Present', 'Absent', 'Leave', 'Holiday'], default: 'Absent' },
   overtimeHours: { type: Number, default: 0 },
   isNightShift: { type: Boolean, default: false },
@@ -1949,7 +1951,7 @@ app.put('/api/salary-slips/:id', async (req, res) => {
 
 // Admin Mark Attendance Endpoint (Admin Only)
 app.post('/api/attendance/admin-mark', async (req, res) => {
-  const { employeeId, date, status, checkIn, checkOut, overtimeHours, isNightShift, nightShiftHours } = req.body;
+  const { employeeId, date, status, checkIn, checkOut, overtimeHours, isNightShift, nightShiftHours, nightCheckIn, nightCheckOut, workedDay, workedNight } = req.body;
 
   try {
     const employee = await Employee.findById(employeeId);
@@ -1959,19 +1961,31 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
 
     let checkInDate = null;
     let checkOutDate = null;
+    let nightCheckInDate = null;
+    let nightCheckOutDate = null;
+    let isNightShiftActive = false;
 
     if (status === 'Present') {
-      if (checkIn) {
-        checkInDate = new Date(`${date}T${checkIn}:00`);
-      } else {
-        // Default checkIn to 09:00 if status is Present but not specified
-        checkInDate = new Date(`${date}T09:00:00`);
+      const hasAnyTimeInput = checkIn || checkOut || nightCheckIn || nightCheckOut;
+      const isDayShiftActive = workedDay !== false && (checkIn || checkOut || !hasAnyTimeInput);
+      isNightShiftActive = workedNight || (isNightShift && !hasAnyTimeInput) || (nightCheckIn || nightCheckOut);
+
+      if (isDayShiftActive) {
+        checkInDate = checkIn ? new Date(`${date}T${checkIn}:00`) : new Date(`${date}T09:00:00`);
+        checkOutDate = checkOut ? new Date(`${date}T${checkOut}:00`) : new Date(`${date}T17:00:00`);
       }
-      if (checkOut) {
-        checkOutDate = new Date(`${date}T${checkOut}:00`);
-      } else {
-        // Default checkOut to 17:00 if status is Present but not specified
-        checkOutDate = new Date(`${date}T17:00:00`);
+
+      if (isNightShiftActive) {
+        const defaultIn = '20:00';
+        const defaultOut = '04:00';
+        const inStr = nightCheckIn || defaultIn;
+        const outStr = nightCheckOut || defaultOut;
+
+        nightCheckInDate = new Date(`${date}T${inStr}:00`);
+        nightCheckOutDate = new Date(`${date}T${outStr}:00`);
+        if (nightCheckOutDate <= nightCheckInDate) {
+          nightCheckOutDate.setDate(nightCheckOutDate.getDate() + 1);
+        }
       }
     }
 
@@ -1980,9 +1994,11 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
       attendance.status = status;
       attendance.checkIn = checkInDate;
       attendance.checkOut = checkOutDate;
+      attendance.nightCheckIn = nightCheckInDate;
+      attendance.nightCheckOut = nightCheckOutDate;
       attendance.overtimeHours = status === 'Present' ? (Number(overtimeHours) || 0) : 0;
-      attendance.isNightShift = status === 'Present' ? (Boolean(isNightShift) || false) : false;
-      attendance.nightShiftHours = status === 'Present' ? (Number(nightShiftHours) || 0) : 0;
+      attendance.isNightShift = status === 'Present' ? isNightShiftActive : false;
+      attendance.nightShiftHours = (status === 'Present' && isNightShiftActive) ? (Number(nightShiftHours) || 0) : 0;
       await attendance.save();
     } else {
       attendance = new Attendance({
@@ -1991,9 +2007,11 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
         status,
         checkIn: checkInDate,
         checkOut: checkOutDate,
+        nightCheckIn: nightCheckInDate,
+        nightCheckOut: nightCheckOutDate,
         overtimeHours: status === 'Present' ? (Number(overtimeHours) || 0) : 0,
-        isNightShift: status === 'Present' ? (Boolean(isNightShift) || false) : false,
-        nightShiftHours: status === 'Present' ? (Number(nightShiftHours) || 0) : 0
+        isNightShift: status === 'Present' ? isNightShiftActive : false,
+        nightShiftHours: (status === 'Present' && isNightShiftActive) ? (Number(nightShiftHours) || 0) : 0
       });
       await attendance.save();
     }
@@ -2007,7 +2025,7 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
 
 // Blanket Mark Attendance Endpoint
 app.post('/api/attendance/blanket-mark', async (req, res) => {
-  const { date, status, checkIn, checkOut, overtimeHours, isNightShift, nightShiftHours } = req.body;
+  const { date, status, checkIn, checkOut, overtimeHours, isNightShift, nightShiftHours, nightCheckIn, nightCheckOut, workedDay, workedNight } = req.body;
 
   if (!date || !status) {
     return res.status(400).json({ success: false, message: 'Date and Status are required fields.' });
@@ -2022,17 +2040,31 @@ app.post('/api/attendance/blanket-mark', async (req, res) => {
 
     let checkInDate = null;
     let checkOutDate = null;
+    let nightCheckInDate = null;
+    let nightCheckOutDate = null;
+    let isNightShiftActive = false;
 
     if (status === 'Present') {
-      if (checkIn) {
-        checkInDate = new Date(`${date}T${checkIn}:00`);
-      } else {
-        checkInDate = new Date(`${date}T09:00:00`);
+      const hasAnyTimeInput = checkIn || checkOut || nightCheckIn || nightCheckOut;
+      const isDayShiftActive = workedDay !== false && (checkIn || checkOut || !hasAnyTimeInput);
+      isNightShiftActive = workedNight || (isNightShift && !hasAnyTimeInput) || (nightCheckIn || nightCheckOut);
+
+      if (isDayShiftActive) {
+        checkInDate = checkIn ? new Date(`${date}T${checkIn}:00`) : new Date(`${date}T09:00:00`);
+        checkOutDate = checkOut ? new Date(`${date}T${checkOut}:00`) : new Date(`${date}T17:00:00`);
       }
-      if (checkOut) {
-        checkOutDate = new Date(`${date}T${checkOut}:00`);
-      } else {
-        checkOutDate = new Date(`${date}T17:00:00`);
+
+      if (isNightShiftActive) {
+        const defaultIn = '20:00';
+        const defaultOut = '04:00';
+        const inStr = nightCheckIn || defaultIn;
+        const outStr = nightCheckOut || defaultOut;
+
+        nightCheckInDate = new Date(`${date}T${inStr}:00`);
+        nightCheckOutDate = new Date(`${date}T${outStr}:00`);
+        if (nightCheckOutDate <= nightCheckInDate) {
+          nightCheckOutDate.setDate(nightCheckOutDate.getDate() + 1);
+        }
       }
     }
 
@@ -2045,9 +2077,11 @@ app.post('/api/attendance/blanket-mark', async (req, res) => {
               status,
               checkIn: checkInDate,
               checkOut: checkOutDate,
+              nightCheckIn: nightCheckInDate,
+              nightCheckOut: nightCheckOutDate,
               overtimeHours: status === 'Present' ? (Number(overtimeHours) || 0) : 0,
-              isNightShift: status === 'Present' ? (Boolean(isNightShift) || false) : false,
-              nightShiftHours: status === 'Present' ? (Number(nightShiftHours) || 0) : 0
+              isNightShift: status === 'Present' ? isNightShiftActive : false,
+              nightShiftHours: (status === 'Present' && isNightShiftActive) ? (Number(nightShiftHours) || 0) : 0
             }
           },
           upsert: true
