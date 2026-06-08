@@ -1140,7 +1140,7 @@ const fetchContextFromDb = async (prompt) => {
           { invoiceNo: String(parseInt(queryVal) || queryVal).padStart(3, '0') },
           { invoiceNo: { $regex: queryVal, $options: 'i' } }
         ]
-      }).limit(3);
+      }).limit(5);
       
       if (invoices.length > 0) {
         context += `\nMatching Invoices found in database:\n`;
@@ -1184,7 +1184,7 @@ const fetchContextFromDb = async (prompt) => {
     if (potentialCompany) {
       const invoices = await Invoice.find({
         companyName: { $regex: potentialCompany, $options: 'i' }
-      }).sort({ invoiceDate: -1 }).limit(3);
+      }).sort({ invoiceDate: -1 }).limit(5);
       
       if (invoices.length > 0) {
         let hasNewInvoices = invoices.some(inv => !context.includes(inv.invoiceNo));
@@ -1200,8 +1200,8 @@ const fetchContextFromDb = async (prompt) => {
       }
     }
 
-    // 3. Check for employee names (e.g. "employee Ramesh", "salary of Ramesh")
-    const employees = await Employee.find({}).select('name designation department status email grossSalary dateOfJoining');
+    // 3. Match Employee Profiles
+    const employees = await Employee.find({});
     const matchedEmployees = [];
     employees.forEach(emp => {
       const nameParts = emp.name.toLowerCase().split(/\s+/);
@@ -1216,29 +1216,80 @@ const fetchContextFromDb = async (prompt) => {
       for (const emp of matchedEmployees) {
         context += `* Employee Name: ${emp.name}\n`;
         context += `  - Designation: ${emp.designation}\n`;
-        context += `  - Department: ${emp.department || 'N/A'}\n`;
         context += `  - Status: ${emp.status}\n`;
         context += `  - Email: ${emp.email}\n`;
         context += `  - Date of Joining: ${emp.dateOfJoining ? emp.dateOfJoining.toISOString().split('T')[0] : 'N/A'}\n`;
         context += `  - Gross Salary: ₹${emp.grossSalary ? emp.grossSalary.toLocaleString('en-IN') : 'N/A'}\n`;
-        
-        if (promptLower.includes('salary') || promptLower.includes('pay') || promptLower.includes('slip')) {
-          const salarySlips = await SalarySlip.find({ employeeId: emp._id }).sort({ _id: -1 }).limit(1);
+        context += `  - Default Shift: ${emp.defaultShift || 'Day'}\n`;
+
+        // Fetch salary slips for this employee if prompted
+        if (promptLower.includes('salary') || promptLower.includes('pay') || promptLower.includes('slip') || promptLower.includes('wages')) {
+          const salarySlips = await SalarySlip.find({ employeeId: emp._id }).sort({ monthOfSalary: -1 }).limit(5);
           if (salarySlips.length > 0) {
-            const slip = salarySlips[0];
-            context += `  - Latest Salary Slip Details (Month: ${slip.monthOfSalary}):\n`;
-            context += `    * Work Days: ${slip.workDays} days\n`;
-            context += `    * Total Gross Salary: ₹${slip.totalSalary}\n`;
-            context += `    * Advance Taken: ₹${slip.advance || 0}\n`;
-            context += `    * ESIC Deduction: ₹${slip.esic || 0}\n`;
-            context += `    * Lunch Deduction: ₹${slip.lunchDeduction || 0}\n`;
-            context += `    * Net In-Hand Paid: ₹${slip.inHandSalary}\n`;
+            context += `  - Salary Slip History:\n`;
+            salarySlips.forEach(slip => {
+              context += `    * Month: ${slip.monthOfSalary} | Work Days: ${slip.workDays} | Gross: ₹${slip.totalSalary} | Net In-Hand: ₹${slip.inHandSalary} | OT Hours: ${slip.overtimeHours} | Night Hours: ${slip.nightShiftHours}\n`;
+            });
+          }
+        }
+
+        // Fetch recent attendance logs for this employee if prompted
+        if (promptLower.includes('attendance') || promptLower.includes('present') || promptLower.includes('absent') || promptLower.includes('leave') || promptLower.includes('holiday') || promptLower.includes('check')) {
+          const attendanceLogs = await Attendance.find({ employeeId: emp._id }).sort({ date: -1 }).limit(10);
+          if (attendanceLogs.length > 0) {
+            context += `  - Recent Attendance Logs (Latest 10 days):\n`;
+            attendanceLogs.forEach(log => {
+              const checkInTime = log.checkIn ? new Date(log.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+              const checkOutTime = log.checkOut ? new Date(log.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+              const nightCheckInTime = log.nightCheckIn ? new Date(log.nightCheckIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+              const nightCheckOutTime = log.nightCheckOut ? new Date(log.nightCheckOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+              context += `    * Date: ${log.date} | Status: ${log.status} | Day In/Out: ${checkInTime}/${checkOutTime} | Night In/Out: ${nightCheckInTime}/${nightCheckOutTime} | OT: ${log.overtimeHours} hrs | Night Hrs: ${log.nightShiftHours} hrs\n`;
+            });
           }
         }
         context += `\n`;
       }
     }
-    
+
+    // 4. Fetch specific date attendance if date is mentioned (e.g. "attendance for 2026-06-08" or "who is absent today")
+    let targetDateStr = null;
+    const dateMatch = prompt.match(/\b\d{4}-\d{2}-\d{2}\b/);
+    if (dateMatch) {
+      targetDateStr = dateMatch[0];
+    } else if (promptLower.includes('today')) {
+      targetDateStr = new Date().toISOString().split('T')[0];
+    } else if (promptLower.includes('yesterday')) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      targetDateStr = yesterday.toISOString().split('T')[0];
+    }
+
+    if (targetDateStr && (promptLower.includes('attendance') || promptLower.includes('absent') || promptLower.includes('present') || promptLower.includes('leave') || promptLower.includes('holiday'))) {
+      const logs = await Attendance.find({ date: targetDateStr }).populate('employeeId', 'name');
+      if (logs.length > 0) {
+        context += `\nAttendance records for ${targetDateStr}:\n`;
+        logs.forEach(log => {
+          const empName = log.employeeId?.name || 'Unknown';
+          const checkInTime = log.checkIn ? new Date(log.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+          const checkOutTime = log.checkOut ? new Date(log.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+          context += `* Employee: ${empName} | Status: ${log.status} | Day In/Out: ${checkInTime}/${checkOutTime} | Night Shift: ${log.isNightShift ? 'Yes' : 'No'} (${log.nightShiftHours} hrs) | OT: ${log.overtimeHours} hrs\n`;
+        });
+      } else {
+        context += `\nNo attendance logs found for date ${targetDateStr}.\n`;
+      }
+    }
+
+    // 5. Check for Registered Users / Accounts query
+    if (promptLower.includes('user') || promptLower.includes('account') || promptLower.includes('role') || promptLower.includes('admin') || promptLower.includes('registered')) {
+      const users = await User.find({}).select('name email role isVerified');
+      if (users.length > 0) {
+        context += `\nRegistered System Users (Note: Passwords, credentials, and OTP fields are strictly excluded for security):\n`;
+        users.forEach(u => {
+          context += `* User: ${u.name} | Email: ${u.email} | Role: ${u.role} | Verified: ${u.isVerified ? 'Yes' : 'No'}\n`;
+        });
+      }
+    }
+
   } catch (err) {
     console.error('Error fetching dynamic database context for AI Chat:', err);
   }
@@ -1271,14 +1322,15 @@ const aiRateLimiter = (req, res, next) => {
   next();
 };
 
-// Check if user prompt is querying database statistics
+// Check if user prompt is querying database statistics or flows
 const isDatabaseQuery = (messages) => {
   if (!messages || messages.length === 0) return false;
   const lastMessage = messages[messages.length - 1].content.toLowerCase();
   const keywords = [
     'invoice', 'bill', 'sale', 'earning', 'employee', 'staff', 'worker', 
     'attendance', 'payroll', 'salary', 'how many', 'total', 'summary', 
-    'report', 'statistic', 'metrics', 'analytics'
+    'report', 'statistic', 'metrics', 'analytics', 'user', 'account', 
+    'role', 'admin', 'how to', 'how do i', 'steps', 'guide', 'navigation', 'workflow'
   ];
   return keywords.some(keyword => lastMessage.includes(keyword));
 };
@@ -1335,6 +1387,43 @@ const getDatabaseSummaryMetadata = async () => {
   }
 };
 
+// Static Website Navigation Flow FAQ
+const WEBSITE_FLOW_GUIDE = `
+SYSTEM WORKFLOW & NAVIGATION GUIDE (Sakshi Enterprises):
+1. Adding a New Employee:
+   - Navigate to "Employee Management" in the sidebar.
+   - Click the "+ Add Employee" button next to the "Registered Employees" title.
+   - Complete the form (Name, Email, Designation, Joining Date, Gross Salary, and default shift).
+   - Submit the form. The overlay modal closes automatically.
+2. Editing Employee Profiles:
+   - In "Employee Management", locate the employee in the "Registered Employees" table.
+   - Click the blue "Edit" button (pencil icon) in their row.
+   - Modify the pre-filled fields in the modal and click "Save".
+3. Mark Daily Attendance:
+   - Navigate to "Attendance Register" in the sidebar.
+   - Click any date cell in the employee's row.
+   - Select status (Present, Absent, Leave, Holiday).
+   - If "Present", check "Day Shift" and/or "Night Shift" to log either or both shifts. Day overtime hours and Night shift hours are calculated automatically based on check-in/out times. Manual hours adjustments can also be made.
+   - Click "Save" to save.
+4. Blanket Mark Attendance (Multiple Employees):
+   - In "Attendance Register", click "Blanket Mark" in the top-right corner.
+   - Select the target Day of the Month and Status.
+   - Provide standard shift times if status is Present.
+   - Click "Apply All" to apply to all active employees.
+5. Generating Salary Slips:
+   - Navigate to "Salary Slips / Payrolls" in the sidebar.
+   - Select the Employee from the dropdown.
+   - Select the Month and Year.
+   - The system automatically retrieves attendance, overtime, and night shift records from the database.
+   - Manually input or adjust parameters (Shift Hours, Advance, ESIC, Lunch Deduction).
+   - Review net in-hand salary calculations and click "Generate & Save".
+6. Invoices Management & Printing:
+   - Navigate to "Invoices" in the sidebar.
+   - To create: Click "Create Invoice", fill Consignee details and items grid (description, HSN, quantity, rate). Tax calculations (CGST/SGST/IGST) and grand totals auto-compute.
+   - To search or paginate: Use search box at the top, select items-per-page (10, 20, 50, 100) and page navigation controls.
+   - To print: Click "View" (eye icon) on any invoice, then click the "Print" button in the top right. Close button is automatically hidden during printing.
+`;
+
 // AI Chat Copilot endpoint
 app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
   const { messages } = req.body;
@@ -1382,6 +1471,16 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
   if (specificContext) {
     console.log('[AI Chat] Specific database document context fetched. Injecting...');
     systemPromptText += `\n\nSpecific document details fetched from database to help you answer the user's request:\n${specificContext}`;
+  }
+
+  // Inject Website Flow Navigation Guide if user is seeking instructions or help
+  const isNavigationQuery = sanitizedMessages.some(msg => {
+    const txt = msg.content.toLowerCase();
+    return txt.includes('how') || txt.includes('step') || txt.includes('guide') || txt.includes('navigate') || txt.includes('flow') || txt.includes('workflow') || txt.includes('instruction') || txt.includes('help');
+  });
+  if (isNavigationQuery) {
+    console.log('[AI Chat] Navigation instruction query detected. Injecting website flow guide...');
+    systemPromptText += `\n\n${WEBSITE_FLOW_GUIDE}`;
   }
 
   const systemPrompt = {
