@@ -1432,8 +1432,8 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
   }
 
   const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    console.warn('GROQ_API_KEY is not defined. Returning a stubbed helpful response.');
+  if (!apiKey || apiKey === 'your_groq_api_key_here') {
+    console.warn('GROQ_API_KEY is not defined or is placeholder. Returning a stubbed helpful response.');
     return res.json({
       choices: [
         {
