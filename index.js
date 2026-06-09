@@ -2275,7 +2275,8 @@ const employeeSchema = new mongoose.Schema({
   designation: { type: String, default: '' },
   location: { type: String, default: '' },
   status: { type: String, enum: ['Active', 'On Hold', 'On Holiday', 'Inactive', 'Discontinued'], default: 'Active' },
-  defaultShift: { type: String, default: 'Day (09:30 - 17:30)' }
+  defaultShift: { type: String, default: 'Day (09:30 - 17:30)' },
+  hra: { type: Number, default: 0 }
 });
 
 const Employee = mongoose.model('Employee', employeeSchema);
@@ -2401,6 +2402,7 @@ const salarySlipSchema = new mongoose.Schema({
   lunchRate: { type: Number, default: 0 },
   lunchDeduction: { type: Number, default: 0 },
   shiftHours: { type: Number, default: 8 },
+  hra: { type: Number, default: 0 },
   inHandSalary: { type: Number, required: true }
 });
 
@@ -2434,7 +2436,7 @@ app.post('/api/salary-slips', async (req, res) => {
       nightShiftAllowance = Math.floor(nightShiftDays * nightShiftRate);
     }
     
-    const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary + nightShiftAllowance);
+    const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary + nightShiftAllowance + Math.floor(parseFloat(salarySlipData.hra || 0)));
     const esic = Math.floor(salarySlipData.esic || 0);
     const advance = Math.floor(salarySlipData.advance || 0);
     const lunchDeduction = Math.floor(salarySlipData.lunchDeduction || 0);
@@ -2442,6 +2444,7 @@ app.post('/api/salary-slips', async (req, res) => {
 
     const salarySlip = new SalarySlip({
       ...salarySlipData,
+      hra: Math.floor(parseFloat(salarySlipData.hra || 0)),
       salaryByWorkDays,
       overtimeSalary,
       nightShiftHours,
@@ -2782,7 +2785,8 @@ app.put('/api/salary-slips/:id', async (req, res) => {
     const salaryByWorkDays = Math.floor(workDays * dailyRate);
     const hourlyOtRate = Math.floor(dailyRate / shiftHours);
     const overtimeSalary = Math.floor(otHours * hourlyOtRate);
-    const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary + nightShiftAllowance);
+    const hra = Math.floor(parseFloat(salarySlipData.hra || 0));
+    const totalSalary = Math.floor(salaryByWorkDays + overtimeSalary + nightShiftAllowance + hra);
     const lunchDeduction = Math.floor(lunchDays * lunchRate);
     const inHandSalary = Math.floor(totalSalary - esic - advance - lunchDeduction);
     
@@ -2804,6 +2808,7 @@ app.put('/api/salary-slips/:id', async (req, res) => {
         lunchRate,
         lunchDeduction,
         shiftHours,
+        hra,
         inHandSalary,
         monthOfSalary
       },
