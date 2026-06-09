@@ -1424,6 +1424,111 @@ SYSTEM WORKFLOW & NAVIGATION GUIDE (Sakshi Enterprises):
    - To print: Click "View" (eye icon) on any invoice, then click the "Print" button in the top right. Close button is automatically hidden during printing.
 `;
 
+// Helper to parse and execute attendance commands locally (Fallback intent parser)
+async function handleLocalAttendanceCommand(message) {
+  const employees = await Employee.find({ status: { $nin: ['Inactive', 'Discontinued'] } });
+  
+  let date = new Date().toISOString().split('T')[0];
+  const dateMatch = message.match(/\b\d{4}-\d{2}-\d{2}\b/);
+  if (dateMatch) {
+    date = dateMatch[0];
+  } else if (message.toLowerCase().includes('yesterday')) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    date = yesterday.toISOString().split('T')[0];
+  }
+  
+  let status = 'Present';
+  const msgLower = message.toLowerCase();
+  if (msgLower.includes('absent')) status = 'Absent';
+  else if (msgLower.includes('leave')) status = 'Leave';
+  else if (msgLower.includes('holiday')) status = 'Holiday';
+  
+  let checkIn = '09:30';
+  let checkOut = '17:30';
+  
+  const timeRangeRegex = /\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?\s*(?:to|and|-)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?/i;
+  const match = message.match(timeRangeRegex);
+  if (match) {
+    let h1 = parseInt(match[1]);
+    let m1 = match[2] ? parseInt(match[2]) : 0;
+    let amp1 = match[3] ? match[3].toLowerCase() : null;
+    
+    let h2 = parseInt(match[4]);
+    let m2 = match[5] ? parseInt(match[5]) : 0;
+    let amp2 = match[6] ? match[6].toLowerCase() : null;
+    
+    if (amp2 === 'pm' && !amp1 && h1 < 12 && h1 < h2) {
+      amp1 = 'am';
+    }
+    
+    if (amp1 === 'pm' && h1 < 12) h1 += 12;
+    if (amp1 === 'am' && h1 === 12) h1 = 0;
+    
+    if (amp2 === 'pm' && h2 < 12) h2 += 12;
+    if (amp2 === 'am' && h2 === 12) h2 = 0;
+    
+    if (!amp1 && !amp2) {
+      if (h1 >= 1 && h1 <= 6) h1 += 12;
+      if (h2 >= 1 && h2 <= 11 && h2 < h1) h2 += 12;
+    }
+    
+    checkIn = `${String(h1).padStart(2, '0')}:${String(m1).padStart(2, '0')}`;
+    checkOut = `${String(h2).padStart(2, '0')}:${String(m2).padStart(2, '0')}`;
+  }
+  
+  let targetEmployees = [];
+  const isBlanket = msgLower.includes('all') || msgLower.includes('every') || msgLower.includes('blanket');
+  
+  if (isBlanket) {
+    targetEmployees = employees;
+  } else {
+    targetEmployees = employees.filter(emp => msgLower.includes(emp.name.toLowerCase()));
+  }
+  
+  if (targetEmployees.length === 0) {
+    return `I parsed a command to mark attendance, but could not identify which employees to mark. Please specify "all employees" or mention employee names (e.g. Ramesh).`;
+  }
+  
+  let checkInDate = null;
+  let checkOutDate = null;
+  
+  if (status === 'Present') {
+    checkInDate = new Date(`${date}T${checkIn}:00+05:30`);
+    checkOutDate = new Date(`${date}T${checkOut}:00+05:30`);
+  }
+  
+  const operations = targetEmployees.map(emp => {
+    return {
+      updateOne: {
+        filter: { employeeId: emp._id, date },
+        update: {
+          $set: {
+            status,
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            nightCheckIn: null,
+            nightCheckOut: null,
+            overtimeHours: 0,
+            isNightShift: false,
+            nightShiftHours: 0
+          }
+        },
+        upsert: true
+      }
+    };
+  });
+  
+  await Attendance.bulkWrite(operations);
+  
+  const empNames = targetEmployees.map(e => e.name).join(', ');
+  if (isBlanket) {
+    return `I have successfully marked all active employees (${targetEmployees.length}) Present for date ${date} from ${checkIn} to ${checkOut} (IST).`;
+  } else {
+    return `I have successfully marked attendance for ${targetEmployees.length} employees (${empNames}) as ${status} for date ${date}${status === 'Present' ? ` from ${checkIn} to ${checkOut} (IST)` : ''}.`;
+  }
+}
+
 // AI Chat Copilot endpoint
 app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
   const { messages } = req.body;
@@ -1431,8 +1536,40 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
     return res.status(400).json({ error: 'Messages are required and must be an array.' });
   }
 
+  const lastUserMessage = messages[messages.length - 1]?.content || '';
+  const msgLower = lastUserMessage.toLowerCase();
+  const isAttendanceCommand = msgLower.includes('mark') && 
+                              (msgLower.includes('attendance') || 
+                               msgLower.includes('present') || 
+                               msgLower.includes('absent') || 
+                               msgLower.includes('leave') || 
+                               msgLower.includes('holiday'));
+
   const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey || apiKey === 'your_groq_api_key_here') {
+  const isPlaceholderKey = !apiKey || apiKey === 'your_groq_api_key_here';
+
+  // Fallback Intent Parser for Local Testing/No API Key
+  if (isPlaceholderKey && isAttendanceCommand) {
+    console.log('[AI Chat] Fallback Mode: Parsing local attendance command:', lastUserMessage);
+    try {
+      const reply = await handleLocalAttendanceCommand(lastUserMessage);
+      return res.json({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: reply
+            }
+          }
+        ]
+      });
+    } catch (err) {
+      console.error('[AI Chat] Fallback attendance mark error:', err);
+      return res.status(500).json({ error: 'Failed to execute fallback attendance command.' });
+    }
+  }
+
+  if (isPlaceholderKey) {
     console.warn('GROQ_API_KEY is not defined or is placeholder. Returning a stubbed helpful response.');
     return res.json({
       choices: [
@@ -1456,7 +1593,7 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
   }));
 
   // Base system instructions
-  let systemPromptText = 'You are ABHI digi AI, a secure corporate billing and payroll assistant for Sakshi Enterprises. You help users draft emails (e.g. invoice sending, payment reminders, salary slip notices), explain billing and Indian taxation concepts (CGST, SGST, IGST, HSN codes), and guide them on how to navigate this invoice and payroll system. For security, never ask for or process passwords, bank credentials, or private personal identifiers. Be concise, polite, and professional. IMPORTANT: You are a read-only assistant. You have no write, modify, or delete privileges over the database, invoices, employee payrolls, or attendance records. If a user asks you to edit, create, or delete records, explain that you are a read-only assistant and direct them to use the dashboard controls manually.';
+  let systemPromptText = 'You are ABHI digi AI, a secure corporate billing and payroll assistant for Sakshi Enterprises. You help users draft emails (e.g. invoice sending, payment reminders, salary slip notices), explain billing and Indian taxation concepts (CGST, SGST, IGST, HSN codes), and guide them on how to navigate this invoice and payroll system. For security, never ask for or process passwords, bank credentials, or private personal identifiers. Be concise, polite, and professional. IMPORTANT: For attendance marking, you have access to tools to update attendance logs (blanket mark all active employees, or mark specific employees). Use these tools whenever the user requests to mark attendance. For all other database entities (invoices, employee salary slips, and payroll profiles), you are strictly read-only and cannot write, modify, or delete them. If a user asks you to modify those, instruct them to use the dashboard controls manually.';
 
   // Inject real-time MongoDB context if user asks about data analytics/records
   if (isDatabaseQuery(capMessages)) {
@@ -1488,6 +1625,48 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
     content: systemPromptText
   };
 
+  const tools = [
+    {
+      type: 'function',
+      function: {
+        name: 'blanketMarkAttendance',
+        description: 'Mark attendance for all active employees at once for a specific day.',
+        parameters: {
+          type: 'object',
+          properties: {
+            date: { type: 'string', description: 'The date in YYYY-MM-DD format.' },
+            status: { type: 'string', enum: ['Present', 'Absent', 'Leave', 'Holiday'], description: 'Attendance status' },
+            checkIn: { type: 'string', description: 'Check-in time (HH:MM format, 24-hour clock, defaults to 09:30)' },
+            checkOut: { type: 'string', description: 'Check-out time (HH:MM format, 24-hour clock, defaults to 17:30)' }
+          },
+          required: ['date', 'status']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'markMultipleEmployeesAttendance',
+        description: 'Mark attendance for a specific list of employees by their name on a specific day.',
+        parameters: {
+          type: 'object',
+          properties: {
+            employeeNames: { 
+              type: 'array', 
+              items: { type: 'string' },
+              description: 'Array of employee names to mark attendance for.' 
+            },
+            date: { type: 'string', description: 'The date in YYYY-MM-DD format.' },
+            status: { type: 'string', enum: ['Present', 'Absent', 'Leave', 'Holiday'], description: 'Attendance status' },
+            checkIn: { type: 'string', description: 'Check-in time (HH:MM format, 24-hour clock, defaults to 09:30)' },
+            checkOut: { type: 'string', description: 'Check-out time (HH:MM format, 24-hour clock, defaults to 17:30)' }
+          },
+          required: ['employeeNames', 'date', 'status']
+        }
+      }
+    }
+  ];
+
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -1498,6 +1677,8 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
         messages: [systemPrompt, ...sanitizedMessages],
+        tools: tools,
+        tool_choice: 'auto',
         temperature: 0.3,
         max_tokens: 800
       })
@@ -1510,6 +1691,105 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
     }
 
     const data = await response.json();
+    const message = data.choices?.[0]?.message;
+
+    if (message && message.tool_calls && message.tool_calls.length > 0) {
+      console.log('[AI Chat] LLM triggered tool calls:', message.tool_calls.map(tc => tc.function.name));
+      const results = [];
+      for (const call of message.tool_calls) {
+        const funcName = call.function.name;
+        const args = JSON.parse(call.function.arguments);
+        let resultMsg = "";
+
+        try {
+          if (funcName === 'blanketMarkAttendance') {
+            const employees = await Employee.find({ status: { $ne: 'Discontinued' } });
+            let checkInDate = null;
+            let checkOutDate = null;
+            if (args.status === 'Present') {
+              const checkIn = args.checkIn || '09:30';
+              const checkOut = args.checkOut || '17:30';
+              checkInDate = new Date(`${args.date}T${checkIn}:00+05:30`);
+              checkOutDate = new Date(`${args.date}T${checkOut}:00+05:30`);
+            }
+            const operations = employees.map(emp => ({
+              updateOne: {
+                filter: { employeeId: emp._id, date: args.date },
+                update: {
+                  $set: {
+                    status: args.status,
+                    checkIn: checkInDate,
+                    checkOut: checkOutDate,
+                    nightCheckIn: null,
+                    nightCheckOut: null,
+                    overtimeHours: 0,
+                    isNightShift: false,
+                    nightShiftHours: 0
+                  }
+                },
+                upsert: true
+              }
+            }));
+            await Attendance.bulkWrite(operations);
+            resultMsg = `Successfully marked all active employees (${employees.length}) as ${args.status} on ${args.date}${args.status === 'Present' ? ` from ${args.checkIn || '09:30'} to ${args.checkOut || '17:30'}` : ''}.`;
+          } else if (funcName === 'markMultipleEmployeesAttendance') {
+            const employees = await Employee.find({ status: { $ne: 'Discontinued' } });
+            const names = args.employeeNames.map(n => n.toLowerCase());
+            const targetEmployees = employees.filter(emp => names.some(n => emp.name.toLowerCase().includes(n) || n.includes(emp.name.toLowerCase())));
+
+            if (targetEmployees.length === 0) {
+              resultMsg = `Could not find any active employees matching the names: ${args.employeeNames.join(', ')}.`;
+            } else {
+              let checkInDate = null;
+              let checkOutDate = null;
+              if (args.status === 'Present') {
+                const checkIn = args.checkIn || '09:30';
+                const checkOut = args.checkOut || '17:30';
+                checkInDate = new Date(`${args.date}T${checkIn}:00+05:30`);
+                checkOutDate = new Date(`${args.date}T${checkOut}:00+05:30`);
+              }
+              const operations = targetEmployees.map(emp => ({
+                updateOne: {
+                  filter: { employeeId: emp._id, date: args.date },
+                  update: {
+                    $set: {
+                      status: args.status,
+                      checkIn: checkInDate,
+                      checkOut: checkOutDate,
+                      nightCheckIn: null,
+                      nightCheckOut: null,
+                      overtimeHours: 0,
+                      isNightShift: false,
+                      nightShiftHours: 0
+                    }
+                  },
+                  upsert: true
+                }
+              }));
+              await Attendance.bulkWrite(operations);
+              const matchedNames = targetEmployees.map(e => e.name).join(', ');
+              resultMsg = `Successfully marked attendance for ${targetEmployees.length} employees (${matchedNames}) as ${args.status} on ${args.date}${args.status === 'Present' ? ` from ${args.checkIn || '09:30'} to ${args.checkOut || '17:30'}` : ''}.`;
+            }
+          }
+        } catch (err) {
+          console.error(`Error executing tool ${funcName}:`, err);
+          resultMsg = `Failed to execute tool ${funcName}: ${err.message}`;
+        }
+        results.push(resultMsg);
+      }
+
+      return res.json({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: results.join('\n')
+            }
+          }
+        ]
+      });
+    }
+
     res.json(data);
   } catch (error) {
     console.error('Error in AI Chat API:', error);
@@ -2169,6 +2449,78 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
 });
 
 // Blanket Mark Attendance Endpoint
+// Bulk Mark Attendance Endpoint
+app.post('/api/attendance/bulk-mark', async (req, res) => {
+  const { employeeIds, date, status, checkIn, checkOut, overtimeHours, isNightShift, nightShiftHours, nightCheckIn, nightCheckOut, workedDay, workedNight } = req.body;
+
+  if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+    return res.status(400).json({ success: false, message: 'employeeIds array is required.' });
+  }
+  if (!date || !status) {
+    return res.status(400).json({ success: false, message: 'Date and Status are required fields.' });
+  }
+
+  try {
+    let checkInDate = null;
+    let checkOutDate = null;
+    let nightCheckInDate = null;
+    let nightCheckOutDate = null;
+    let isNightShiftActive = false;
+
+    if (status === 'Present') {
+      const hasAnyTimeInput = checkIn || checkOut || nightCheckIn || nightCheckOut;
+      const isDayShiftActive = workedDay !== false && (checkIn || checkOut || !hasAnyTimeInput);
+      isNightShiftActive = workedNight || (isNightShift && !hasAnyTimeInput) || (nightCheckIn || nightCheckOut);
+
+      if (isDayShiftActive) {
+        checkInDate = checkIn ? new Date(`${date}T${checkIn}:00+05:30`) : new Date(`${date}T09:00:00+05:30`);
+        checkOutDate = checkOut ? new Date(`${date}T${checkOut}:00+05:30`) : new Date(`${date}T17:00:00+05:30`);
+      }
+
+      if (isNightShiftActive) {
+        const defaultIn = '20:00';
+        const defaultOut = '04:00';
+        const inStr = nightCheckIn || defaultIn;
+        const outStr = nightCheckOut || defaultOut;
+
+        nightCheckInDate = new Date(`${date}T${inStr}:00+05:30`);
+        nightCheckOutDate = new Date(`${date}T${outStr}:00+05:30`);
+        if (nightCheckOutDate <= nightCheckInDate) {
+          nightCheckOutDate.setDate(nightCheckOutDate.getDate() + 1);
+        }
+      }
+    }
+
+    const operations = employeeIds.map(empId => {
+      return {
+        updateOne: {
+          filter: { employeeId: empId, date },
+          update: {
+            $set: {
+              status,
+              checkIn: checkInDate,
+              checkOut: checkOutDate,
+              nightCheckIn: nightCheckInDate,
+              nightCheckOut: nightCheckOutDate,
+              overtimeHours: status === 'Present' ? (Number(overtimeHours) || 0) : 0,
+              isNightShift: status === 'Present' ? isNightShiftActive : false,
+              nightShiftHours: (status === 'Present' && isNightShiftActive) ? (Number(nightShiftHours) || 0) : 0
+            }
+          },
+          upsert: true
+        }
+      };
+    });
+
+    await Attendance.bulkWrite(operations);
+
+    res.status(200).json({ success: true, message: `Bulk attendance updated successfully for ${employeeIds.length} employees on ${date}!` });
+  } catch (error) {
+    console.error('Error in bulk-mark attendance:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 app.post('/api/attendance/blanket-mark', async (req, res) => {
   const { date, status, checkIn, checkOut, overtimeHours, isNightShift, nightShiftHours, nightCheckIn, nightCheckOut, workedDay, workedNight } = req.body;
 
