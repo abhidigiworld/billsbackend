@@ -1638,7 +1638,7 @@ async function handleLocalMultipleAddEmployee(message) {
   for (let part of parts) {
     part = part.trim();
     if (!part) continue;
-    part = part.replace(/^(?:add|create|register)\s+employees?\s*/i, '');
+    part = part.replace(/^(?:add|create|register)\s*(?:employees?)?\s*/i, '');
     
     const extracted = extractEmployeeInfo([{ role: 'user', content: `add employee ${part}` }]);
     
