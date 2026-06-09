@@ -1753,12 +1753,15 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
                                msgLower.includes('holiday'));
 
   let isAddEmployeeTurn = false;
-  const isEmployeeAddCommand = msgLower.includes('add') && 
+  const isEmployeeAddCommand = (msgLower.includes('add') || msgLower.includes('register') || msgLower.includes('create')) && 
                                (msgLower.includes('employee') || 
                                 msgLower.includes('member') || 
                                 msgLower.includes('staff') || 
                                 msgLower.includes('worker') ||
-                                msgLower.includes('profile'));
+                                msgLower.includes('profile') ||
+                                msgLower.includes('salary') ||
+                                msgLower.includes('designation') ||
+                                msgLower.includes('location'));
                                 
   if (isEmployeeAddCommand) {
     isAddEmployeeTurn = true;
