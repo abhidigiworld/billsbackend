@@ -1530,16 +1530,24 @@ app.listen(port, () => {
 // Mongoose schema for Employee
 const employeeSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
+  email: { type: String, unique: true, sparse: true },
   dateOfJoining: { type: Date, required: true },
   grossSalary: { type: Number, required: true },
   designation: { type: String, default: '' },
   location: { type: String, default: '' },
   status: { type: String, enum: ['Active', 'On Hold', 'On Holiday', 'Inactive', 'Discontinued'], default: 'Active' },
-  defaultShift: { type: String, enum: ['Day', 'Night'], default: 'Day' }
+  defaultShift: { type: String, default: 'Day (09:30 - 17:30)' }
 });
 
 const Employee = mongoose.model('Employee', employeeSchema);
+
+// Sync indexes to ensure unique sparse email index is created correctly
+Employee.syncIndexes().catch(err => {
+  console.log('Error syncing Employee indexes, attempting dropIndex email_1 first...');
+  Employee.collection.dropIndex('email_1')
+    .then(() => Employee.syncIndexes())
+    .catch(dropErr => console.log('Employee index sync deferred or index already clean:', dropErr.message));
+});
 
 // Mongoose schema for Attendance
 const attendanceSchema = new mongoose.Schema({
@@ -1571,26 +1579,40 @@ app.get('/api/employees', async (req, res) => {
 // Route to add a new employee
 app.post('/api/employees', async (req, res) => {
   try {
-    const employee = new Employee(req.body);
+    const employeeData = { ...req.body };
+    if (!employeeData.email || employeeData.email.trim() === '') {
+      delete employeeData.email;
+    }
+    const employee = new Employee(employeeData);
     const savedEmployee = await employee.save();
     res.status(201).json(savedEmployee);
   } catch (error) {
     console.error('Error saving employee:', error);
-    res.status(500).json({ error: 'An error occurred while saving the employee' });
+    res.status(500).json({ error: error.message || 'An error occurred while saving the employee' });
   }
 });
 
 // Route to update an employee by ID
 app.put('/api/employees/:id', async (req, res) => {
   try {
-    const updatedEmployee = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updateData = { ...req.body };
+    const updateQuery = {};
+    if (!updateData.email || updateData.email.trim() === '') {
+      delete updateData.email;
+      updateQuery.$set = updateData;
+      updateQuery.$unset = { email: "" };
+    } else {
+      updateQuery.$set = updateData;
+    }
+
+    const updatedEmployee = await Employee.findByIdAndUpdate(req.params.id, updateQuery, { new: true });
     if (!updatedEmployee) {
       return res.status(404).json({ error: 'Employee not found' });
     }
     res.json(updatedEmployee);
   } catch (error) {
     console.error('Error updating employee:', error);
-    res.status(500).json({ error: 'An error occurred while updating the employee' });
+    res.status(500).json({ error: error.message || 'An error occurred while updating the employee' });
   }
 });
 
@@ -2065,20 +2087,44 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
     let isNightShiftActive = false;
 
     if (status === 'Present') {
+      const defaultShift = employee.defaultShift || 'Day (09:30 - 17:30)';
+      const isNight = defaultShift.includes('Night');
+      
+      let defaultDayIn = '09:30';
+      let defaultDayOut = '17:30';
+      if (defaultShift.includes('09:00')) {
+        defaultDayIn = '09:00';
+        defaultDayOut = '17:00';
+      }
+      
+      let defaultNightIn = '20:00';
+      let defaultNightOut = '04:00';
+      
+      const timeMatch = defaultShift.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+      if (timeMatch) {
+        if (isNight) {
+          defaultNightIn = timeMatch[1];
+          defaultNightOut = timeMatch[2];
+        } else {
+          defaultDayIn = timeMatch[1];
+          defaultDayOut = timeMatch[2];
+        }
+      }
+
       const hasAnyTimeInput = checkIn || checkOut || nightCheckIn || nightCheckOut;
       const isDayShiftActive = workedDay !== false && (checkIn || checkOut || !hasAnyTimeInput);
       isNightShiftActive = workedNight || (isNightShift && !hasAnyTimeInput) || (nightCheckIn || nightCheckOut);
 
       if (isDayShiftActive) {
-        checkInDate = checkIn ? new Date(`${date}T${checkIn}:00`) : new Date(`${date}T09:00:00`);
-        checkOutDate = checkOut ? new Date(`${date}T${checkOut}:00`) : new Date(`${date}T17:00:00`);
+        const inStr = checkIn || defaultDayIn;
+        const outStr = checkOut || defaultDayOut;
+        checkInDate = new Date(`${date}T${inStr}:00`);
+        checkOutDate = new Date(`${date}T${outStr}:00`);
       }
 
       if (isNightShiftActive) {
-        const defaultIn = '20:00';
-        const defaultOut = '04:00';
-        const inStr = nightCheckIn || defaultIn;
-        const outStr = nightCheckOut || defaultOut;
+        const inStr = nightCheckIn || defaultNightIn;
+        const outStr = nightCheckOut || defaultNightOut;
 
         nightCheckInDate = new Date(`${date}T${inStr}:00`);
         nightCheckOutDate = new Date(`${date}T${outStr}:00`);
