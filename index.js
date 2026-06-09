@@ -1239,10 +1239,10 @@ const fetchContextFromDb = async (prompt) => {
           if (attendanceLogs.length > 0) {
             context += `  - Recent Attendance Logs (Latest 10 days):\n`;
             attendanceLogs.forEach(log => {
-              const checkInTime = log.checkIn ? new Date(log.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
-              const checkOutTime = log.checkOut ? new Date(log.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
-              const nightCheckInTime = log.nightCheckIn ? new Date(log.nightCheckIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
-              const nightCheckOutTime = log.nightCheckOut ? new Date(log.nightCheckOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+              const checkInTime = log.checkIn ? new Date(log.checkIn).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+              const checkOutTime = log.checkOut ? new Date(log.checkOut).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+              const nightCheckInTime = log.nightCheckIn ? new Date(log.nightCheckIn).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+              const nightCheckOutTime = log.nightCheckOut ? new Date(log.nightCheckOut).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
               context += `    * Date: ${log.date} | Status: ${log.status} | Day In/Out: ${checkInTime}/${checkOutTime} | Night In/Out: ${nightCheckInTime}/${nightCheckOutTime} | OT: ${log.overtimeHours} hrs | Night Hrs: ${log.nightShiftHours} hrs\n`;
             });
           }
@@ -1270,8 +1270,8 @@ const fetchContextFromDb = async (prompt) => {
         context += `\nAttendance records for ${targetDateStr}:\n`;
         logs.forEach(log => {
           const empName = log.employeeId?.name || 'Unknown';
-          const checkInTime = log.checkIn ? new Date(log.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
-          const checkOutTime = log.checkOut ? new Date(log.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+          const checkInTime = log.checkIn ? new Date(log.checkIn).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+          const checkOutTime = log.checkOut ? new Date(log.checkOut).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
           context += `* Employee: ${empName} | Status: ${log.status} | Day In/Out: ${checkInTime}/${checkOutTime} | Night Shift: ${log.isNightShift ? 'Yes' : 'No'} (${log.nightShiftHours} hrs) | OT: ${log.overtimeHours} hrs\n`;
         });
       } else {
@@ -2118,16 +2118,16 @@ app.post('/api/attendance/admin-mark', async (req, res) => {
       if (isDayShiftActive) {
         const inStr = checkIn || defaultDayIn;
         const outStr = checkOut || defaultDayOut;
-        checkInDate = new Date(`${date}T${inStr}:00`);
-        checkOutDate = new Date(`${date}T${outStr}:00`);
+        checkInDate = new Date(`${date}T${inStr}:00+05:30`);
+        checkOutDate = new Date(`${date}T${outStr}:00+05:30`);
       }
 
       if (isNightShiftActive) {
         const inStr = nightCheckIn || defaultNightIn;
         const outStr = nightCheckOut || defaultNightOut;
 
-        nightCheckInDate = new Date(`${date}T${inStr}:00`);
-        nightCheckOutDate = new Date(`${date}T${outStr}:00`);
+        nightCheckInDate = new Date(`${date}T${inStr}:00+05:30`);
+        nightCheckOutDate = new Date(`${date}T${outStr}:00+05:30`);
         if (nightCheckOutDate <= nightCheckInDate) {
           nightCheckOutDate.setDate(nightCheckOutDate.getDate() + 1);
         }
@@ -2195,8 +2195,8 @@ app.post('/api/attendance/blanket-mark', async (req, res) => {
       isNightShiftActive = workedNight || (isNightShift && !hasAnyTimeInput) || (nightCheckIn || nightCheckOut);
 
       if (isDayShiftActive) {
-        checkInDate = checkIn ? new Date(`${date}T${checkIn}:00`) : new Date(`${date}T09:00:00`);
-        checkOutDate = checkOut ? new Date(`${date}T${checkOut}:00`) : new Date(`${date}T17:00:00`);
+        checkInDate = checkIn ? new Date(`${date}T${checkIn}:00+05:30`) : new Date(`${date}T09:00:00+05:30`);
+        checkOutDate = checkOut ? new Date(`${date}T${checkOut}:00+05:30`) : new Date(`${date}T17:00:00+05:30`);
       }
 
       if (isNightShiftActive) {
@@ -2205,8 +2205,8 @@ app.post('/api/attendance/blanket-mark', async (req, res) => {
         const inStr = nightCheckIn || defaultIn;
         const outStr = nightCheckOut || defaultOut;
 
-        nightCheckInDate = new Date(`${date}T${inStr}:00`);
-        nightCheckOutDate = new Date(`${date}T${outStr}:00`);
+        nightCheckInDate = new Date(`${date}T${inStr}:00+05:30`);
+        nightCheckOutDate = new Date(`${date}T${outStr}:00+05:30`);
         if (nightCheckOutDate <= nightCheckInDate) {
           nightCheckOutDate.setDate(nightCheckOutDate.getDate() + 1);
         }
