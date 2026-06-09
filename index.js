@@ -2423,6 +2423,16 @@ app.get('/api/salary-slips', async (req, res) => {
 app.post('/api/salary-slips', async (req, res) => {
   try {
     const salarySlipData = req.body;
+    
+    // Check if duplicate slip exists for this employee and month
+    const existingSlip = await SalarySlip.findOne({
+      employeeId: salarySlipData.employeeId,
+      monthOfSalary: salarySlipData.monthOfSalary
+    });
+    if (existingSlip) {
+      return res.status(400).json({ error: `Salary slip already generated for this employee for ${salarySlipData.monthOfSalary}.` });
+    }
+
     const salaryByWorkDays = Math.floor(salarySlipData.salaryByWorkDays || 0);
     const overtimeSalary = Math.floor(salarySlipData.overtimeSalary || 0);
     const nightShiftHours = parseFloat(salarySlipData.nightShiftHours || 0);
