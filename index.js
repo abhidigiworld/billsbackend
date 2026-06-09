@@ -1529,6 +1529,207 @@ async function handleLocalAttendanceCommand(message) {
   }
 }
 
+// Helper to extract employee info from chat history
+function extractEmployeeInfo(messages) {
+  let name = null;
+  let grossSalary = null;
+  let dateOfJoining = null;
+  let designation = null;
+  let location = null;
+  let email = null;
+  let defaultShift = null;
+  let forceSave = false;
+
+  for (const msg of messages) {
+    if (msg.role !== 'user') continue;
+    const content = msg.content;
+
+    // 1. Check for force save / proceed in the LAST message
+    if (msg === messages[messages.length - 1]) {
+      if (/\b(?:save|save anyway|proceed|create|confirm|yes|force)\b/i.test(content)) {
+        forceSave = true;
+      }
+    }
+
+    // 2. Extract Name
+    const nameMatch1 = content.match(/(?:add|create|register)\s+employee\s+([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)/);
+    const nameMatch2 = content.match(/(?:name\s+is|named)\s+([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)/);
+    const nameMatch1Ins = content.match(/(?:add|create|register)\s+employee\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)*)/i);
+    const nameMatch2Ins = content.match(/(?:name\s+is|named)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)*)/i);
+
+    let parsedName = null;
+    if (nameMatch1) parsedName = nameMatch1[1];
+    else if (nameMatch2) parsedName = nameMatch2[1];
+    else if (nameMatch1Ins) parsedName = nameMatch1Ins[1];
+    else if (nameMatch2Ins) parsedName = nameMatch2Ins[1];
+
+    if (parsedName) {
+      parsedName = parsedName.replace(/\b(?:salary|joined|joining|designation|location|email|with|whose|and|as)\b.*/i, '').trim();
+      if (parsedName.length > 1) {
+        name = parsedName;
+      }
+    }
+
+    // 3. Extract Salary
+    const salaryMatch = content.match(/(?:salary|gross|pay|earns|earning)\b\D*(\d+)/i);
+    if (salaryMatch) {
+      grossSalary = parseInt(salaryMatch[1]);
+    }
+
+    // 4. Extract Date of Joining
+    const dateMatch = content.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+    if (dateMatch) {
+      dateOfJoining = dateMatch[1];
+    } else if (/\bjoined\s+today\b/i.test(content) || /\bjoining\s+today\b/i.test(content)) {
+      dateOfJoining = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    } else if (/\bjoined\s+yesterday\b/i.test(content)) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      dateOfJoining = yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    }
+
+    // 5. Extract Designation
+    const desigMatch = content.match(/\b(?:designation|role|title|position)\s*(?:is)?\s*([A-Za-z\s]+?)(?=\b(?:salary|email|location|joined|joining|and|with)\b|$)/i);
+    const desigMatch2 = content.match(/\bas\s+a\s+([A-Za-z\s]+?)(?=\b(?:salary|email|location|joined|joining|and|with)\b|$)/i);
+    if (desigMatch) {
+      designation = desigMatch[1].trim();
+    } else if (desigMatch2) {
+      designation = desigMatch2[1].trim();
+    }
+
+    // 6. Extract Location
+    const locMatch = content.match(/\b(?:location|city|based in|works at|office)\s*(?:is)?\s*([A-Za-z\s]+?)(?=\b(?:salary|email|designation|joined|joining|and|with)\b|$)/i);
+    if (locMatch) {
+      location = locMatch[1].trim();
+    } else {
+      const cityMatch = content.match(/\b(?:in|at)\s+(Delhi|Noida|Mumbai|Bengaluru|Bangalore|Chennai|Kolkata|Gurugram|Gurgaon|Hyderabad|Pune)\b/i);
+      if (cityMatch) {
+        location = cityMatch[1].trim();
+      }
+    }
+
+    // 7. Extract Email
+    const emailMatch = content.match(/\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/);
+    if (emailMatch) {
+      email = emailMatch[1];
+    }
+
+    // 8. Extract Shift
+    const shiftMatch = content.match(/\b(day|night)\s*shift\b/i);
+    if (shiftMatch) {
+      defaultShift = shiftMatch[1].toLowerCase() === 'night' ? 'Night (20:00 - 04:00)' : 'Day (09:30 - 17:30)';
+    }
+  }
+
+  return { name, grossSalary, dateOfJoining, designation, location, email, defaultShift, forceSave };
+}
+
+// Helper to handle multiple employee additions
+async function handleLocalMultipleAddEmployee(message) {
+  const parts = message.split(/(?:\band\b|,|\n|;)/i);
+  const results = [];
+  
+  for (let part of parts) {
+    part = part.trim();
+    if (!part) continue;
+    part = part.replace(/^(?:add|create|register)\s+employees?\s*/i, '');
+    
+    const extracted = extractEmployeeInfo([{ role: 'user', content: `add employee ${part}` }]);
+    
+    if (extracted.name && extracted.grossSalary) {
+      const dateOfJoining = extracted.dateOfJoining || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      try {
+        const employeeData = {
+          name: extracted.name,
+          grossSalary: Number(extracted.grossSalary),
+          dateOfJoining: new Date(dateOfJoining),
+          designation: extracted.designation || '',
+          location: extracted.location || '',
+          defaultShift: extracted.defaultShift || 'Day (09:30 - 17:30)'
+        };
+        if (extracted.email) {
+          employeeData.email = extracted.email;
+        }
+        const employee = new Employee(employeeData);
+        const saved = await employee.save();
+        results.push(`Saved ${saved.name} (Salary: ₹${saved.grossSalary}, Location: ${saved.location || 'N/A'})`);
+      } catch (err) {
+        results.push(`Failed to save ${extracted.name}: ${err.message}`);
+      }
+    }
+  }
+  
+  if (results.length > 0) {
+    return `Bulk Add Result:\n` + results.map(r => `- ${r}`).join('\n');
+  } else {
+    return `I detected a request to add multiple employees, but could not parse their names and salaries. Please format like: 'Add Ramesh (salary 25000) and Suresh (salary 30000)'.`;
+  }
+}
+
+// Fallback logic to add employee locally
+async function handleLocalAddEmployeeCommand(messages) {
+  const lastUserMessage = messages[messages.length - 1]?.content || '';
+  const msgLower = lastUserMessage.toLowerCase();
+
+  const isMultipleAdd = (msgLower.includes('employees') || msgLower.includes('and')) && 
+                        (msgLower.includes('add') || msgLower.includes('register'));
+  
+  if (isMultipleAdd && !msgLower.includes('save') && !msgLower.includes('proceed')) {
+    const parts = lastUserMessage.split(/\band\b/i);
+    if (parts.length > 1 && parts.some(p => p.toLowerCase().includes('salary') || p.toLowerCase().includes('gross'))) {
+      return await handleLocalMultipleAddEmployee(lastUserMessage);
+    }
+  }
+
+  const extracted = extractEmployeeInfo(messages);
+
+  if (!extracted.name) {
+    return `I detected you want to add a new employee, but I couldn't find the employee's name. Please say something like: "Add employee Ramesh".`;
+  }
+
+  const missing = [];
+  if (!extracted.grossSalary) missing.push('Gross Salary (e.g. "salary is 25000")');
+  if (!extracted.dateOfJoining) missing.push('Date of Joining (e.g. "joining date 2026-06-01")');
+  if (!extracted.designation) missing.push('Designation (e.g. "designation is Developer")');
+  if (!extracted.location) missing.push('Location (e.g. "location is Delhi")');
+
+  if (missing.length > 0 && !extracted.forceSave) {
+    const missingList = missing.map(m => `- ${m}`).join('\n');
+    return `I detected that you want to add **${extracted.name}**.\n\nI still need the following details to complete the registration:\n${missingList}\n\nPlease provide them (e.g. "salary is 25000, location is Noida"), or reply **"save"** to proceed with only the current details.`;
+  }
+
+  try {
+    const dateOfJoining = extracted.dateOfJoining || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const grossSalary = extracted.grossSalary || 0;
+
+    const employeeData = {
+      name: extracted.name,
+      grossSalary: Number(grossSalary),
+      dateOfJoining: new Date(dateOfJoining),
+      designation: extracted.designation || '',
+      location: extracted.location || '',
+      defaultShift: extracted.defaultShift || 'Day (09:30 - 17:30)'
+    };
+
+    if (extracted.email) {
+      employeeData.email = extracted.email;
+    }
+
+    const employee = new Employee(employeeData);
+    const savedEmployee = await employee.save();
+
+    return `Successfully added new employee **${savedEmployee.name}**! 🎉\n` +
+           `- Designation: ${savedEmployee.designation || 'N/A'}\n` +
+           `- Location: ${savedEmployee.location || 'N/A'}\n` +
+           `- Gross Salary: ₹${savedEmployee.grossSalary}\n` +
+           `- Date of Joining: ${dateOfJoining}\n` +
+           `- Default Shift: ${savedEmployee.defaultShift}`;
+  } catch (err) {
+    console.error('Error saving employee locally:', err);
+    return `Failed to save employee: ${err.message}`;
+  }
+}
+
 // AI Chat Copilot endpoint
 app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
   const { messages } = req.body;
@@ -1545,8 +1746,52 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
                                msgLower.includes('leave') || 
                                msgLower.includes('holiday'));
 
+  let isAddEmployeeTurn = false;
+  const isEmployeeAddCommand = msgLower.includes('add') && 
+                               (msgLower.includes('employee') || 
+                                msgLower.includes('member') || 
+                                msgLower.includes('staff') || 
+                                msgLower.includes('worker') ||
+                                msgLower.includes('profile'));
+                                
+  if (isEmployeeAddCommand) {
+    isAddEmployeeTurn = true;
+  } else {
+    const assistantMessages = messages.filter(m => m.role === 'assistant');
+    if (assistantMessages.length > 0) {
+      const lastAssistantMsg = assistantMessages[assistantMessages.length - 1].content;
+      if (lastAssistantMsg.includes('Please provide the missing details') || 
+          lastAssistantMsg.includes('Please provide the remaining recommended field') ||
+          lastAssistantMsg.includes('I still need the following details') ||
+          lastAssistantMsg.includes('I detected you want to add a new employee')) {
+        isAddEmployeeTurn = true;
+      }
+    }
+  }
+
   const apiKey = process.env.GROQ_API_KEY;
   const isPlaceholderKey = !apiKey || apiKey === 'your_groq_api_key_here';
+
+  // Fallback Employee Add Parser for Local Testing/No API Key
+  if (isPlaceholderKey && isAddEmployeeTurn) {
+    console.log('[AI Chat] Fallback Mode: Parsing local employee add command:', lastUserMessage);
+    try {
+      const reply = await handleLocalAddEmployeeCommand(messages);
+      return res.json({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: reply
+            }
+          }
+        ]
+      });
+    } catch (err) {
+      console.error('[AI Chat] Fallback employee add error:', err);
+      return res.status(500).json({ error: 'Failed to execute fallback employee add command.' });
+    }
+  }
 
   // Fallback Intent Parser for Local Testing/No API Key
   if (isPlaceholderKey && isAttendanceCommand) {
@@ -1593,7 +1838,7 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
   }));
 
   // Base system instructions
-  let systemPromptText = 'You are ABHI digi AI, a secure corporate billing and payroll assistant for Sakshi Enterprises. You help users draft emails (e.g. invoice sending, payment reminders, salary slip notices), explain billing and Indian taxation concepts (CGST, SGST, IGST, HSN codes), and guide them on how to navigate this invoice and payroll system. For security, never ask for or process passwords, bank credentials, or private personal identifiers. Be concise, polite, and professional. IMPORTANT: For attendance marking, you have access to tools to update attendance logs (blanket mark all active employees, or mark specific employees). Use these tools whenever the user requests to mark attendance. For all other database entities (invoices, employee salary slips, and payroll profiles), you are strictly read-only and cannot write, modify, or delete them. If a user asks you to modify those, instruct them to use the dashboard controls manually.';
+  let systemPromptText = 'You are ABHI digi AI, a secure corporate billing and payroll assistant for Sakshi Enterprises. You help users draft emails (e.g. invoice sending, payment reminders, salary slip notices), explain billing and Indian taxation concepts (CGST, SGST, IGST, HSN codes), and guide them on how to navigate this invoice and payroll system. For security, never ask for or process passwords, bank credentials, or private personal identifiers. Be concise, polite, and professional. IMPORTANT: For attendance marking, you have access to tools to update attendance logs (blanket mark all active employees, or mark specific employees). Use these tools whenever the user requests to mark attendance. You also have the `addEmployee` tool to register new employees. If a user asks to add an employee, you must interactively gather the required/recommended details: Name, Gross Salary, Date of Joining, Designation, and Location. Do not prompt for Email or Default Shift as they are strictly optional. If any of these recommended/required fields are missing, list them and ask the user to provide them before you invoke the `addEmployee` tool. However, if the user instructs you to save/proceed anyway with the details they have provided, you may execute the tool with what is available. For all other database entities (invoices, employee salary slips, and payroll profiles), you are strictly read-only and cannot write, modify, or delete them. If a user asks you to modify those, instruct them to use the dashboard controls manually.';
 
   // Inject real-time MongoDB context if user asks about data analytics/records
   if (isDatabaseQuery(capMessages)) {
@@ -1662,6 +1907,26 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
             checkOut: { type: 'string', description: 'Check-out time (HH:MM format, 24-hour clock, defaults to 17:30)' }
           },
           required: ['employeeNames', 'date', 'status']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'addEmployee',
+        description: 'Add a new employee to the database.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Full name of the employee.' },
+            grossSalary: { type: 'number', description: 'Gross monthly salary of the employee in INR.' },
+            dateOfJoining: { type: 'string', description: 'Date of joining in YYYY-MM-DD format.' },
+            designation: { type: 'string', description: 'Designation / job title (e.g. Developer, Clerk).' },
+            location: { type: 'string', description: 'Working location (e.g. Delhi, Noida).' },
+            email: { type: 'string', description: 'Email address of the employee (Optional).' },
+            defaultShift: { type: 'string', description: 'Default shift timing (e.g. Day (09:30 - 17:30) or Night (20:00 - 04:00)). Default is Day (09:30 - 17:30).' }
+          },
+          required: ['name', 'grossSalary', 'dateOfJoining']
         }
       }
     }
@@ -1769,6 +2034,25 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
               await Attendance.bulkWrite(operations);
               const matchedNames = targetEmployees.map(e => e.name).join(', ');
               resultMsg = `Successfully marked attendance for ${targetEmployees.length} employees (${matchedNames}) as ${args.status} on ${args.date}${args.status === 'Present' ? ` from ${args.checkIn || '09:30'} to ${args.checkOut || '17:30'}` : ''}.`;
+            }
+          } else if (funcName === 'addEmployee') {
+            const employeeData = {
+              name: args.name,
+              grossSalary: Number(args.grossSalary),
+              dateOfJoining: new Date(args.dateOfJoining),
+              designation: args.designation || '',
+              location: args.location || '',
+              defaultShift: args.defaultShift || 'Day (09:30 - 17:30)'
+            };
+            if (args.email && args.email.trim() !== '') {
+              employeeData.email = args.email;
+            }
+            try {
+              const employee = new Employee(employeeData);
+              const savedEmployee = await employee.save();
+              resultMsg = `Successfully added new employee ${savedEmployee.name} with Designation: ${savedEmployee.designation || 'N/A'}, Location: ${savedEmployee.location || 'N/A'}, Salary: ₹${savedEmployee.grossSalary}, and Date of Joining: ${args.dateOfJoining}.`;
+            } catch (saveErr) {
+              resultMsg = `Failed to add employee: ${saveErr.message}`;
             }
           }
         } catch (err) {
