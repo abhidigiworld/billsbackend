@@ -1589,20 +1589,26 @@ function extractEmployeeInfo(messages) {
     }
 
     // 5. Extract Designation
-    const desigMatch = content.match(/\b(?:designation|role|title|position)\s*(?:is)?\s*([A-Za-z\s]+?)(?=\b(?:salary|email|location|joined|joining|and|with)\b|$)/i);
-    const desigMatch2 = content.match(/\bas\s+a\s+([A-Za-z\s]+?)(?=\b(?:salary|email|location|joined|joining|and|with)\b|$)/i);
+    const desigMatch = content.match(/\b(?:designation|role|title|position)\s*(?:is)?\s*([^,;.\n]+)/i);
+    const desigMatch2 = content.match(/\bas\s+a\s+([^,;.\n]+)/i);
     if (desigMatch) {
-      designation = desigMatch[1].trim();
+      let val = desigMatch[1].trim();
+      val = val.replace(/\b(?:salary|email|location|joined|joining|and|with|date)\b.*/i, '').trim();
+      designation = val;
     } else if (desigMatch2) {
-      designation = desigMatch2[1].trim();
+      let val = desigMatch2[1].trim();
+      val = val.replace(/\b(?:salary|email|location|joined|joining|and|with|date)\b.*/i, '').trim();
+      designation = val;
     }
 
     // 6. Extract Location
-    const locMatch = content.match(/\b(?:location|city|based in|works at|office)\s*(?:is)?\s*([A-Za-z\s]+?)(?=\b(?:salary|email|designation|joined|joining|and|with)\b|$)/i);
+    const locMatch = content.match(/\b(?:location|city|based in|works at|office)\s*(?:is)?\s*([^,;.\n]+)/i);
     if (locMatch) {
-      location = locMatch[1].trim();
+      let val = locMatch[1].trim();
+      val = val.replace(/\b(?:salary|email|designation|joined|joining|and|with|date)\b.*/i, '').trim();
+      location = val;
     } else {
-      const cityMatch = content.match(/\b(?:in|at)\s+(Delhi|Noida|Mumbai|Bengaluru|Bangalore|Chennai|Kolkata|Gurugram|Gurgaon|Hyderabad|Pune)\b/i);
+      const cityMatch = content.match(/\b(?:in|at)\s+(New\s+Delhi|Delhi|Noida|Mumbai|Bengaluru|Bangalore|Chennai|Kolkata|Gurugram|Gurgaon|Hyderabad|Pune)\b/i);
       if (cityMatch) {
         location = cityMatch[1].trim();
       }
@@ -1957,6 +1963,151 @@ app.post('/api/ai/chat', aiRateLimiter, async (req, res) => {
 
     const data = await response.json();
     const message = data.choices?.[0]?.message;
+
+    // Parse and execute text-based tool calls in content field (e.g. from Llama 3.1)
+    let content = message?.content || '';
+    const textToolRegex = /<function>(\w+)>?(.*?)<\/function>/gs;
+    let textToolMatch;
+    let textResults = [];
+    let executedAnyTextTool = false;
+
+    textToolRegex.lastIndex = 0;
+    while (message && (textToolMatch = textToolRegex.exec(content)) !== null) {
+      const funcName = textToolMatch[1];
+      const argsStr = textToolMatch[2].trim();
+      console.log(`[AI Chat] Intercepted text-based tool call in content: ${funcName} with args: ${argsStr}`);
+      
+      let args = {};
+      try {
+        if (argsStr) {
+          args = JSON.parse(argsStr);
+        }
+      } catch (e) {
+        console.error('[AI Chat] Failed to parse text-based tool call JSON arguments:', e);
+      }
+
+      let resultMsg = "";
+      try {
+        if (funcName === 'addEmployee') {
+          executedAnyTextTool = true;
+          const employeeData = {
+            name: args.name,
+            grossSalary: Number(args.grossSalary),
+            dateOfJoining: args.dateOfJoining ? new Date(args.dateOfJoining) : new Date(),
+            designation: args.designation || '',
+            location: args.location || '',
+            defaultShift: args.defaultShift || 'Day (09:30 - 17:30)'
+          };
+          if (args.email && args.email.trim() !== '') {
+            employeeData.email = args.email;
+          }
+          const employee = new Employee(employeeData);
+          const savedEmployee = await employee.save();
+          resultMsg = `Successfully added new employee **${savedEmployee.name}**! 🎉\n` +
+                      `- Designation: ${savedEmployee.designation || 'N/A'}\n` +
+                      `- Location: ${savedEmployee.location || 'N/A'}\n` +
+                      `- Gross Salary: ₹${savedEmployee.grossSalary}\n` +
+                      `- Date of Joining: ${args.dateOfJoining || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })}`;
+        } else if (funcName === 'blanketMarkAttendance') {
+          executedAnyTextTool = true;
+          const employees = await Employee.find({ status: { $ne: 'Discontinued' } });
+          let checkInDate = null;
+          let checkOutDate = null;
+          if (args.status === 'Present') {
+            const checkIn = args.checkIn || '09:30';
+            const checkOut = args.checkOut || '17:30';
+            checkInDate = new Date(`${args.date}T${checkIn}:00+05:30`);
+            checkOutDate = new Date(`${args.date}T${checkOut}:00+05:30`);
+          }
+          const operations = employees.map(emp => ({
+            updateOne: {
+              filter: { employeeId: emp._id, date: args.date },
+              update: {
+                $set: {
+                  status: args.status,
+                  checkIn: checkInDate,
+                  checkOut: checkOutDate,
+                  nightCheckIn: null,
+                  nightCheckOut: null,
+                  overtimeHours: 0,
+                  isNightShift: false,
+                  nightShiftHours: 0
+                }
+              },
+              upsert: true
+            }
+          }));
+          await Attendance.bulkWrite(operations);
+          resultMsg = `Successfully marked all active employees (${employees.length}) as ${args.status} on ${args.date}${args.status === 'Present' ? ` from ${args.checkIn || '09:30'} to ${args.checkOut || '17:30'}` : ''}.`;
+        } else if (funcName === 'markMultipleEmployeesAttendance') {
+          executedAnyTextTool = true;
+          const employees = await Employee.find({ status: { $ne: 'Discontinued' } });
+          const names = args.employeeNames.map(n => n.toLowerCase());
+          const targetEmployees = employees.filter(emp => names.some(n => emp.name.toLowerCase().includes(n) || n.includes(emp.name.toLowerCase())));
+
+          if (targetEmployees.length === 0) {
+            resultMsg = `Could not find any active employees matching the names: ${args.employeeNames.join(', ')}.`;
+          } else {
+            let checkInDate = null;
+            let checkOutDate = null;
+            if (args.status === 'Present') {
+              const checkIn = args.checkIn || '09:30';
+              const checkOut = args.checkOut || '17:30';
+              checkInDate = new Date(`${args.date}T${checkIn}:00+05:30`);
+              checkOutDate = new Date(`${args.date}T${checkOut}:00+05:30`);
+            }
+            const operations = targetEmployees.map(emp => ({
+              updateOne: {
+                filter: { employeeId: emp._id, date: args.date },
+                update: {
+                  $set: {
+                    status: args.status,
+                    checkIn: checkInDate,
+                    checkOut: checkOutDate,
+                    nightCheckIn: null,
+                    nightCheckOut: null,
+                    overtimeHours: 0,
+                    isNightShift: false,
+                    nightShiftHours: 0
+                  }
+                },
+                upsert: true
+              }
+            }));
+            await Attendance.bulkWrite(operations);
+            const matchedNames = targetEmployees.map(e => e.name).join(', ');
+            resultMsg = `Successfully marked attendance for ${targetEmployees.length} employees (${matchedNames}) as ${args.status} on ${args.date}${args.status === 'Present' ? ` from ${args.checkIn || '09:30'} to ${args.checkOut || '17:30'}` : ''}.`;
+          }
+        }
+      } catch (err) {
+        console.error(`Error executing text tool ${funcName}:`, err);
+        resultMsg = `Failed to execute tool ${funcName}: ${err.message}`;
+      }
+
+      if (resultMsg) {
+        textResults.push(resultMsg);
+      }
+    }
+
+    // Clean up content from any function tags
+    content = content.replace(/<function>.*?<\/function>/gs, '').trim();
+
+    if (executedAnyTextTool) {
+      return res.json({
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: textResults.join('\n') + (content ? `\n\n${content}` : '')
+            }
+          }
+        ]
+      });
+    }
+
+    if (message) {
+      message.content = content;
+    }
 
     if (message && message.tool_calls && message.tool_calls.length > 0) {
       console.log('[AI Chat] LLM triggered tool calls:', message.tool_calls.map(tc => tc.function.name));
