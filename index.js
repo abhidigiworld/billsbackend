@@ -79,11 +79,6 @@ const sendOTPEmail = async (email, otp, subject, text) => {
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
-  // 1. Hardcoded admin check fallback
-  if (username === 'SakshiE2024' && password === 'sakshi0807') {
-    return res.json({ success: true, user: { name: 'Sakshi Admin', email: 'SakshiE2024', role: 'admin' } });
-  }
-
   try {
     // 2. Search database by email or name
     const user = await User.findOne({
@@ -118,7 +113,21 @@ app.post('/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please verify your email address first' });
     }
 
-    // 5. Return success
+    // 5. Save login log
+    try {
+      await new LoginLog({
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        ipAddress: req.headers['x-forwarded-for'] || req.ip || req.socket.remoteAddress,
+        userAgent: req.headers['user-agent']
+      }).save();
+    } catch (logErr) {
+      console.error('Failed to save user login log:', logErr);
+    }
+
+    // 6. Return success
     res.json({
       success: true,
       user: {
@@ -165,6 +174,18 @@ const userSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', userSchema);
+
+const loginLogSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  name: { type: String, required: true },
+  email: { type: String, required: true },
+  role: { type: String, required: true },
+  loginTime: { type: Date, default: Date.now },
+  ipAddress: { type: String },
+  userAgent: { type: String }
+});
+
+const LoginLog = mongoose.model('LoginLog', loginLogSchema);
 
 // Sign Up Endpoint
 app.post('/signup', async (req, res) => {
@@ -2589,6 +2610,17 @@ app.get('/api/users', async (req, res) => {
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get Login Logs Endpoint (Admin Only)
+app.get('/api/admin/login-logs', async (req, res) => {
+  try {
+    const logs = await LoginLog.find().sort({ loginTime: -1 });
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching login logs:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
