@@ -33,6 +33,14 @@ const userSchema = new mongoose.Schema({
   sessionLastActive: {
     type: Date,
     default: null
+  },
+  previousSessionToken: {
+    type: String,
+    default: null
+  },
+  lastTokenRotation: {
+    type: Date,
+    default: null
   }
 }, { timestamps: true });
 

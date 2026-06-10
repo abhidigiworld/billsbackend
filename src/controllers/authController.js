@@ -107,6 +107,8 @@ exports.login = async (req, res, next) => {
 
     // Save session state to database
     user.activeSessionToken = token;
+    user.previousSessionToken = null;
+    user.lastTokenRotation = new Date();
     user.sessionLastActive = new Date();
     await user.save();
 
