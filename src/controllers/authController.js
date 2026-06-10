@@ -62,7 +62,7 @@ exports.signup = async (req, res, next) => {
   }
 };
 
-// Login with Concurrent Session Prevention
+// Login
 exports.login = async (req, res, next) => {
   const { username, password } = req.body;
   try {
@@ -87,30 +87,8 @@ exports.login = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please verify your email address first' });
     }
 
-    // Enforce Single Session (Concurrent Login Lock)
-    const SESSION_TIMEOUT = config.SESSION_LOCK_TIMEOUT_MS;
-    const isSessionActive = user.activeSessionToken && 
-                            user.sessionLastActive && 
-                            (Date.now() - new Date(user.sessionLastActive).getTime() < SESSION_TIMEOUT);
-
-    if (isSessionActive) {
-      const lockMinutes = Math.round(config.SESSION_LOCK_TIMEOUT_MS / 60000);
-      const timeMessage = lockMinutes > 0 ? `${lockMinutes} minutes` : `${config.SESSION_LOCK_TIMEOUT_MS / 1000} seconds`;
-      return res.status(423).json({
-        success: false,
-        message: `This account is currently active on another device. Please log out first, or try again after ${timeMessage} of inactivity.`
-      });
-    }
-
     // Generate token
     const token = signToken(user._id);
-
-    // Save session state to database
-    user.activeSessionToken = token;
-    user.previousSessionToken = null;
-    user.lastTokenRotation = new Date();
-    user.sessionLastActive = new Date();
-    await user.save();
 
     // Log login log
     try {
@@ -144,12 +122,6 @@ exports.login = async (req, res, next) => {
 // Logout
 exports.logout = async (req, res, next) => {
   try {
-    const user = req.user;
-    if (user) {
-      user.activeSessionToken = null;
-      user.sessionLastActive = null;
-      await user.save();
-    }
     res.status(200).json({ success: true, message: 'Logged out successfully.' });
   } catch (error) {
     next(error);
