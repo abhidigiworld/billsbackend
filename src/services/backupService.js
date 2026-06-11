@@ -67,12 +67,30 @@ const runMonthlyBackupJob = async () => {
       return;
     }
 
-    // 4. Retrieve recipient email
+    // 4. Retrieve recipient email and validate that they are an active administrator
     const backupEmailSetting = await SystemSettings.findOne({ key: 'backup_email' });
-    const recipientEmail = backupEmailSetting ? backupEmailSetting.value : null;
+    let recipientEmail = backupEmailSetting ? backupEmailSetting.value : null;
+
+    if (recipientEmail) {
+      const isAdminEmail = await User.findOne({ email: recipientEmail, role: 'admin' });
+      if (!isAdminEmail) {
+        console.log(`[Backup Scheduler] Configured backup recipient ${recipientEmail} is no longer an administrator. Reverting.`);
+        recipientEmail = null;
+      }
+    }
+
+    // Fallback: If no email is configured or the configured email is no longer admin,
+    // find the first active administrator's email
+    if (!recipientEmail) {
+      const firstAdmin = await User.findOne({ role: 'admin' });
+      if (firstAdmin) {
+        recipientEmail = firstAdmin.email;
+        console.log(`[Backup Scheduler] Falling back to primary administrator email: ${recipientEmail}`);
+      }
+    }
 
     if (!recipientEmail) {
-      console.log(`[Backup Scheduler] No backup recipient email configured. Skipping automatic monthly backup.`);
+      console.log(`[Backup Scheduler] No backup recipient email configured and no active administrator found in database. Skipping automatic monthly backup.`);
       return;
     }
 

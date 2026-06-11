@@ -389,13 +389,20 @@ exports.getBackupSettings = async (req, res, next) => {
     next(error);
   }
 };
-
 // Update Backup Settings (Admin Only)
 exports.updateBackupSettings = async (req, res, next) => {
   try {
     const { backup_email, auto_backup_enabled } = req.body;
 
     if (backup_email !== undefined) {
+      // Check if backup_email belongs to a registered user with 'admin' role
+      const isAdminEmail = await User.findOne({ email: backup_email, role: 'admin' });
+      if (!isAdminEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'The backup recipient email must belong to a registered administrator.'
+        });
+      }
       await SystemSettings.findOneAndUpdate(
         { key: 'backup_email' },
         { value: backup_email },
@@ -430,6 +437,15 @@ exports.sendBackupEmailNow = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: 'No recipient email configured or provided.'
+      });
+    }
+
+    // Validate if the custom recipient email is an admin
+    const isAdminEmail = await User.findOne({ email: recipient, role: 'admin' });
+    if (!isAdminEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'The backup recipient email must belong to a registered administrator.'
       });
     }
 
