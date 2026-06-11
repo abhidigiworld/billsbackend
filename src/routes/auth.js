@@ -21,5 +21,9 @@ router.delete('/api/users/:id', protect, restrictTo('admin'), authController.del
 // Admin-only logs and backups
 router.get('/api/admin/login-logs', protect, restrictTo('admin'), authController.getLoginLogs);
 router.get('/api/admin/backup', protect, restrictTo('admin'), authController.getDatabaseBackup);
+router.get('/api/admin/backup-settings', protect, restrictTo('admin'), authController.getBackupSettings);
+router.post('/api/admin/backup-settings', protect, restrictTo('admin'), authController.updateBackupSettings);
+router.post('/api/admin/email-backup', protect, restrictTo('admin'), authController.sendBackupEmailNow);
 
 module.exports = router;
+

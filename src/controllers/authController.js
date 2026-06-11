@@ -2,7 +2,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const LoginLog = require('../models/LoginLog');
-const { sendOTPEmail } = require('../services/mailService');
+const SystemSettings = require('../models/SystemSettings');
+const { sendOTPEmail, sendBackupEmail } = require('../services/mailService');
 const { generateDatabaseBackup } = require('../services/backupService');
 const config = require('../config/config');
 
@@ -363,6 +364,85 @@ exports.getDatabaseBackup = async (req, res, next) => {
     res.setHeader('Content-Disposition', `attachment; filename=backup_sakshi_enterprises_${today}.json`);
     
     return res.status(200).send(JSON.stringify(backup, null, 2));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get Backup Settings (Admin Only)
+exports.getBackupSettings = async (req, res, next) => {
+  try {
+    const backupEmailSetting = await SystemSettings.findOne({ key: 'backup_email' });
+    const autoBackupEnabledSetting = await SystemSettings.findOne({ key: 'auto_backup_enabled' });
+    
+    const backupEmail = backupEmailSetting ? backupEmailSetting.value : (process.env.SMTP_USER || req.user.email);
+    const autoBackupEnabled = autoBackupEnabledSetting ? autoBackupEnabledSetting.value : true;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        backup_email: backupEmail,
+        auto_backup_enabled: autoBackupEnabled
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update Backup Settings (Admin Only)
+exports.updateBackupSettings = async (req, res, next) => {
+  try {
+    const { backup_email, auto_backup_enabled } = req.body;
+
+    if (backup_email !== undefined) {
+      await SystemSettings.findOneAndUpdate(
+        { key: 'backup_email' },
+        { value: backup_email },
+        { upsert: true, new: true }
+      );
+    }
+
+    if (auto_backup_enabled !== undefined) {
+      await SystemSettings.findOneAndUpdate(
+        { key: 'auto_backup_enabled' },
+        { value: auto_backup_enabled === true },
+        { upsert: true, new: true }
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Backup settings updated successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Send Backup Email Immediately (Admin Only)
+exports.sendBackupEmailNow = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const recipient = email || (await SystemSettings.findOne({ key: 'backup_email' }))?.value || process.env.SMTP_USER || req.user.email;
+
+    if (!recipient) {
+      return res.status(400).json({
+        success: false,
+        message: 'No recipient email configured or provided.'
+      });
+    }
+
+    const backupData = await generateDatabaseBackup();
+    const today = new Date().toISOString().split('T')[0];
+    const filename = `backup_manual_sakshi_enterprises_${today}.json`;
+
+    await sendBackupEmail(recipient, backupData, filename);
+
+    res.status(200).json({
+      success: true,
+      message: `Database backup compiled and successfully sent to ${recipient}`
+    });
   } catch (error) {
     next(error);
   }
