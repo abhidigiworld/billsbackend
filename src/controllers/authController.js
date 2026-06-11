@@ -296,15 +296,41 @@ exports.updateUser = async (req, res, next) => {
   const { id } = req.params;
   const { name, email, role, isVerified } = req.body;
   try {
-    const updatedUser = await User.findByIdAndUpdate(
-      id,
-      { name, email, role, isVerified },
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    if (!updatedUser) {
+    const user = await User.findById(id);
+    if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
+    // Check if requester is updating their own profile or is an admin
+    if (req.user.role !== 'admin' && req.user.id.toString() !== id) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to update this profile.' });
+    }
+
+    const updateData = { name };
+
+    // Only allow admin to update email, role, or isVerified
+    if (req.user.role === 'admin') {
+      if (email) updateData.email = email;
+      if (role) updateData.role = role;
+      if (isVerified !== undefined) updateData.isVerified = isVerified;
+    } else {
+      // If regular user attempts to change email, role, or isVerified, reject with 403 Forbidden
+      if (email && email !== user.email) {
+        return res.status(403).json({ success: false, message: 'Only administrators can modify email addresses.' });
+      }
+      if (role && role !== user.role) {
+        return res.status(403).json({ success: false, message: 'Only administrators can modify user roles.' });
+      }
+      if (isVerified !== undefined && isVerified !== user.isVerified) {
+        return res.status(403).json({ success: false, message: 'Only administrators can modify verification status.' });
+      }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
 
     res.status(200).json({ success: true, message: 'User updated successfully', user: updatedUser });
   } catch (error) {
