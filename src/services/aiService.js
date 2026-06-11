@@ -83,7 +83,7 @@ const isDatabaseQuery = (messages) => {
 // Fetch real-time aggregated database metadata securely
 const getDatabaseSummaryMetadata = async () => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     
     // Invoices count and sales total
     const totalInvoices = await Invoice.countDocuments({});
@@ -173,14 +173,14 @@ SYSTEM WORKFLOW & NAVIGATION GUIDE (Sakshi Enterprises):
 async function handleLocalAttendanceCommand(message) {
   const employees = await Employee.find({ status: { $nin: ['Inactive', 'Discontinued'] } });
   
-  let date = new Date().toISOString().split('T')[0];
+  let date = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const dateMatch = message.match(/\b\d{4}-\d{2}-\d{2}\b/);
   if (dateMatch) {
     date = dateMatch[0];
   } else if (message.toLowerCase().includes('yesterday')) {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    date = yesterday.toISOString().split('T')[0];
+    date = yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   }
   
   let status = 'Present';
