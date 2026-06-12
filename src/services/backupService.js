@@ -117,13 +117,90 @@ const runMonthlyBackupJob = async () => {
   }
 };
 
+const runDailySupervisorRequestJob = async () => {
+  try {
+    const User = require('../models/User');
+    const AttendanceRequest = require('../models/AttendanceRequest');
+    const { sendAttendanceRequestEmail } = require('./mailService');
+    const crypto = require('crypto');
+
+    // 1. Get Kolkata date/time
+    const kolkataTime = getKolkataTime();
+    const currentHour = kolkataTime.getHours();
+    
+    // Check if it's 6:00 PM (18:00) or later
+    if (currentHour < 18) {
+      return;
+    }
+
+    const todayStr = kolkataTime.toISOString().split('T')[0];
+
+    // 2. Verify if it already ran today
+    const lastRunSetting = await SystemSettings.findOne({ key: 'last_daily_request_run_date' });
+    if (lastRunSetting && lastRunSetting.value === todayStr) {
+      // Already ran today
+      return;
+    }
+
+    // 3. Find active supervisors
+    const supervisors = await User.find({ role: 'supervisor' });
+    if (supervisors.length === 0) {
+      console.log(`[Supervisor Link Scheduler] No supervisors registered. Skipping daily request.`);
+      // Mark as "run" today anyway to avoid spam checking every 10 mins
+      await SystemSettings.findOneAndUpdate(
+        { key: 'last_daily_request_run_date' },
+        { value: todayStr },
+        { upsert: true, new: true }
+      );
+      return;
+    }
+
+    console.log(`[Supervisor Link Scheduler] Starting daily automatic attendance requests trigger for date ${todayStr}...`);
+
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours link expiry
+    const appUrl = 'https://sakshienterprises.netlify.app';
+
+    for (const sup of supervisors) {
+      const token = crypto.randomBytes(16).toString('hex');
+      const newRequest = new AttendanceRequest({
+        token,
+        date: todayStr,
+        supervisorId: sup._id,
+        email: sup.email,
+        triggerType: 'automatic',
+        expiresAt
+      });
+      await newRequest.save();
+
+      const link = `${appUrl}/supervisor-attendance?token=${token}`;
+      await sendAttendanceRequestEmail(sup.email, sup.name, todayStr, link);
+    }
+
+    // Mark as successfully run today
+    await SystemSettings.findOneAndUpdate(
+      { key: 'last_daily_request_run_date' },
+      { value: todayStr },
+      { upsert: true, new: true }
+    );
+
+    console.log(`[Supervisor Link Scheduler] Sent daily automatic requests successfully to ${supervisors.length} supervisors.`);
+  } catch (error) {
+    console.error('[Supervisor Link Scheduler] Error sending daily automatic requests:', error);
+  }
+};
+
 const startBackupScheduler = () => {
-  console.log('[Backup Scheduler] Initialized monthly database backup daemon...');
-  // Run check every 10 minutes (600,000 ms)
-  setInterval(runMonthlyBackupJob, 600000);
+  console.log('[Backup Scheduler] Initialized monthly database backup and supervisor request daemons...');
   
-  // Also run an initial check 5 seconds after startup
+  // Run checks every 10 minutes (600,000 ms)
+  setInterval(() => {
+    runMonthlyBackupJob();
+    runDailySupervisorRequestJob();
+  }, 600000);
+  
+  // Also run initial checks shortly after startup
   setTimeout(runMonthlyBackupJob, 5000);
+  setTimeout(runDailySupervisorRequestJob, 10000);
 };
 
 module.exports = {
