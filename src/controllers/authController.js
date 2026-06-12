@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const LoginLog = require('../models/LoginLog');
 const SystemSettings = require('../models/SystemSettings');
@@ -378,11 +379,24 @@ exports.getBackupSettings = async (req, res, next) => {
     const backupEmail = backupEmailSetting ? backupEmailSetting.value : (process.env.SMTP_USER || req.user.email);
     const autoBackupEnabled = autoBackupEnabledSetting ? autoBackupEnabledSetting.value : true;
 
+    // Fetch database storage size from MongoDB
+    let storageSize = 0;
+    try {
+      if (mongoose.connection && mongoose.connection.db) {
+        const dbStats = await mongoose.connection.db.stats();
+        storageSize = dbStats.storageSize || dbStats.dataSize || 0;
+      }
+    } catch (dbError) {
+      console.error('Error fetching database stats:', dbError);
+    }
+
     res.status(200).json({
       success: true,
       data: {
         backup_email: backupEmail,
-        auto_backup_enabled: autoBackupEnabled
+        auto_backup_enabled: autoBackupEnabled,
+        storageSize,
+        storageLimit: 512 * 1024 * 1024 // 512 MB in bytes
       }
     });
   } catch (error) {
