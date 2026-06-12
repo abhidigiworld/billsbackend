@@ -142,7 +142,20 @@ const runDailySupervisorRequestJob = async () => {
       return;
     }
 
-    // 3. Find active supervisors
+    // 3. Skip automatic triggers on days marked as a Holiday in the main register
+    const Attendance = require('../models/Attendance');
+    const isHoliday = await Attendance.findOne({ date: todayStr, status: 'Holiday' });
+    if (isHoliday) {
+      console.log(`[Supervisor Link Scheduler] Today (${todayStr}) is marked as a Holiday. Skipping daily automatic request.`);
+      await SystemSettings.findOneAndUpdate(
+        { key: 'last_daily_request_run_date' },
+        { value: todayStr },
+        { upsert: true, new: true }
+      );
+      return;
+    }
+
+    // 4. Find active supervisors
     const supervisors = await User.find({ role: 'supervisor' });
     if (supervisors.length === 0) {
       console.log(`[Supervisor Link Scheduler] No supervisors registered. Skipping daily request.`);
