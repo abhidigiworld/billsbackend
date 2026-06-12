@@ -463,3 +463,68 @@ exports.sendBackupEmailNow = async (req, res, next) => {
     next(error);
   }
 };
+
+// Fetch all system settings merged with defaults
+exports.getSystemSettings = async (req, res, next) => {
+  try {
+    const settings = await SystemSettings.find({});
+    const settingsMap = {};
+    settings.forEach(s => {
+      settingsMap[s.key] = s.value;
+    });
+
+    const merged = {
+      company_name: settingsMap.company_name || 'Sakshi Enterprises',
+      company_subtitle: settingsMap.company_subtitle || 'Enterprise management and payroll portal',
+      company_gstin: settingsMap.company_gstin || '07OURPS6573P1ZY',
+      company_phone: settingsMap.company_phone || '9650650297',
+      company_email: settingsMap.company_email || 'manojsharma.2016m@gmail.com',
+      company_address: settingsMap.company_address || 'D-435, Gali No.-59,Mahavir Enclave,Part-3,West Delhi-110059',
+      company_logo: settingsMap.company_logo || '',
+      company_signature: settingsMap.company_signature || '',
+      company_stamp: settingsMap.company_stamp || ''
+    };
+
+    res.status(200).json({
+      success: true,
+      data: merged
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update specific system settings (Admin Only)
+exports.updateSystemSettings = async (req, res, next) => {
+  try {
+    const updates = req.body;
+    const allowedKeys = [
+      'company_name',
+      'company_subtitle',
+      'company_gstin',
+      'company_phone',
+      'company_email',
+      'company_address',
+      'company_logo',
+      'company_signature',
+      'company_stamp'
+    ];
+
+    for (const key of Object.keys(updates)) {
+      if (allowedKeys.includes(key)) {
+        await SystemSettings.findOneAndUpdate(
+          { key },
+          { value: updates[key] },
+          { upsert: true, new: true }
+        );
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'System branding settings updated successfully.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};

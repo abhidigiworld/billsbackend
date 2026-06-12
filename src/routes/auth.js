@@ -25,5 +25,9 @@ router.get('/api/admin/backup-settings', protect, restrictTo('admin'), authContr
 router.post('/api/admin/backup-settings', protect, restrictTo('admin'), authController.updateBackupSettings);
 router.post('/api/admin/email-backup', protect, restrictTo('admin'), authController.sendBackupEmailNow);
 
+// System settings routes
+router.get('/api/system-settings', authController.getSystemSettings);
+router.put('/api/admin/system-settings', protect, restrictTo('admin'), authController.updateSystemSettings);
+
 module.exports = router;
 
