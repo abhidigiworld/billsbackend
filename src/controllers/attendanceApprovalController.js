@@ -114,12 +114,21 @@ exports.submitAttendance = async (req, res, next) => {
   }
 };
 
-// Admin fetches all pending approvals
+// Admin fetches pending or all approvals
 exports.getPendingApprovals = async (req, res, next) => {
   try {
-    const pendings = await AttendanceApproval.find({ approvalStatus: 'pending' })
+    const { status } = req.query;
+    const query = {};
+    if (status && status !== 'all') {
+      query.approvalStatus = status;
+    } else if (!status) {
+      query.approvalStatus = 'pending';
+    }
+
+    const pendings = await AttendanceApproval.find(query)
       .populate('employeeId', 'name designation location defaultShift')
-      .populate('supervisorId', 'name email');
+      .populate('supervisorId', 'name email')
+      .sort({ updatedAt: -1 });
 
     res.status(200).json({
       success: true,
