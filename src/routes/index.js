@@ -10,12 +10,12 @@ const aiChatRoutes = require('./aiChat');
 const cronRoutes = require('./cron');
 
 // Register feature routes
+router.use(cronRoutes);
 router.use(authRoutes);
 router.use(invoiceRoutes);
 router.use(employeeRoutes);
 router.use(attendanceRoutes);
 router.use(salarySlipRoutes);
 router.use(aiChatRoutes);
-router.use(cronRoutes);
 
 module.exports = router;
