@@ -286,7 +286,37 @@ exports.getAllUsers = async (req, res, next) => {
 // Get Login Logs (Admin Only)
 exports.getLoginLogs = async (req, res, next) => {
   try {
-    const logs = await LoginLog.find().sort({ loginTime: -1 });
+    const search = req.query.search || '';
+    const query = {};
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (req.query.page) {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+      const skip = (page - 1) * limit;
+
+      const totalLogs = await LoginLog.countDocuments(query);
+      const logs = await LoginLog.find(query)
+        .sort({ loginTime: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      return res.json({
+        success: true,
+        logs,
+        totalPages: Math.ceil(totalLogs / limit),
+        currentPage: page,
+        totalLogs
+      });
+    }
+
+    // Fallback for backward compatibility
+    const logs = await LoginLog.find(query).sort({ loginTime: -1 });
     res.json(logs);
   } catch (error) {
     next(error);
