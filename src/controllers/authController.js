@@ -375,9 +375,13 @@ exports.getBackupSettings = async (req, res, next) => {
   try {
     const backupEmailSetting = await SystemSettings.findOne({ key: 'backup_email' });
     const autoBackupEnabledSetting = await SystemSettings.findOne({ key: 'auto_backup_enabled' });
+    const attendanceTriggerTimeSetting = await SystemSettings.findOne({ key: 'attendance_trigger_time' });
+    const attendanceTriggerRecipientsSetting = await SystemSettings.findOne({ key: 'attendance_trigger_recipients' });
     
     const backupEmail = backupEmailSetting ? backupEmailSetting.value : (process.env.SMTP_USER || req.user.email);
     const autoBackupEnabled = autoBackupEnabledSetting ? autoBackupEnabledSetting.value : true;
+    const attendanceTriggerTime = attendanceTriggerTimeSetting ? attendanceTriggerTimeSetting.value : '18:00';
+    const attendanceTriggerRecipients = attendanceTriggerRecipientsSetting ? attendanceTriggerRecipientsSetting.value : [];
 
     // Fetch database storage size from MongoDB
     let storageSize = 0;
@@ -395,6 +399,8 @@ exports.getBackupSettings = async (req, res, next) => {
       data: {
         backup_email: backupEmail,
         auto_backup_enabled: autoBackupEnabled,
+        attendance_trigger_time: attendanceTriggerTime,
+        attendance_trigger_recipients: attendanceTriggerRecipients,
         storageSize,
         storageLimit: 512 * 1024 * 1024 // 512 MB in bytes
       }
@@ -406,7 +412,7 @@ exports.getBackupSettings = async (req, res, next) => {
 // Update Backup Settings (Admin Only)
 exports.updateBackupSettings = async (req, res, next) => {
   try {
-    const { backup_email, auto_backup_enabled } = req.body;
+    const { backup_email, auto_backup_enabled, attendance_trigger_time, attendance_trigger_recipients } = req.body;
 
     if (backup_email !== undefined) {
       // Check if backup_email belongs to a registered user with 'admin' role
@@ -432,9 +438,38 @@ exports.updateBackupSettings = async (req, res, next) => {
       );
     }
 
+    if (attendance_trigger_time !== undefined) {
+      // Validate time format HH:MM using 24 hour regex
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(attendance_trigger_time)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid time format. Expected HH:MM (24-hour style).'
+        });
+      }
+      await SystemSettings.findOneAndUpdate(
+        { key: 'attendance_trigger_time' },
+        { value: attendance_trigger_time },
+        { upsert: true, new: true }
+      );
+    }
+
+    if (attendance_trigger_recipients !== undefined) {
+      if (!Array.isArray(attendance_trigger_recipients)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Recipients must be an array of user IDs.'
+        });
+      }
+      await SystemSettings.findOneAndUpdate(
+        { key: 'attendance_trigger_recipients' },
+        { value: attendance_trigger_recipients },
+        { upsert: true, new: true }
+      );
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Backup settings updated successfully'
+      message: 'Settings updated successfully'
     });
   } catch (error) {
     next(error);

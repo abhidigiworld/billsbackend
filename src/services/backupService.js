@@ -127,9 +127,18 @@ const runDailySupervisorRequestJob = async () => {
     // 1. Get Kolkata date/time
     const kolkataTime = getKolkataTime();
     const currentHour = kolkataTime.getHours();
+    const currentMinute = kolkataTime.getMinutes();
     
-    // Check if it's 6:00 PM (18:00) or later
-    if (currentHour < 18) {
+    // Retrieve target trigger time
+    const triggerTimeSetting = await SystemSettings.findOne({ key: 'attendance_trigger_time' });
+    const triggerTime = triggerTimeSetting ? triggerTimeSetting.value : '18:00';
+    
+    // Convert current and target time to minutes since midnight for easy comparison
+    const [targetHour, targetMinute] = triggerTime.split(':').map(Number);
+    const currentMinutes = currentHour * 60 + currentMinute;
+    const targetMinutes = targetHour * 60 + targetMinute;
+
+    if (currentMinutes < targetMinutes) {
       return;
     }
 
@@ -156,9 +165,23 @@ const runDailySupervisorRequestJob = async () => {
     }
 
     // 4. Find active supervisors
-    const supervisors = await User.find({ role: 'supervisor' });
+    const recipientsSetting = await SystemSettings.findOne({ key: 'attendance_trigger_recipients' });
+    const configuredRecipients = recipientsSetting ? recipientsSetting.value : null;
+
+    let supervisors = [];
+    if (Array.isArray(configuredRecipients) && configuredRecipients.length > 0) {
+      // Find configured supervisors
+      supervisors = await User.find({ 
+        _id: { $in: configuredRecipients },
+        role: 'supervisor'
+      });
+    } else {
+      // Default fallback: all active supervisors
+      supervisors = await User.find({ role: 'supervisor' });
+    }
+
     if (supervisors.length === 0) {
-      console.log(`[Supervisor Link Scheduler] No supervisors registered. Skipping daily request.`);
+      console.log(`[Supervisor Link Scheduler] No active target supervisors found. Skipping daily request.`);
       // Mark as "run" today anyway to avoid spam checking every 10 mins
       await SystemSettings.findOneAndUpdate(
         { key: 'last_daily_request_run_date' },
