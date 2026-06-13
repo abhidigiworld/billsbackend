@@ -332,45 +332,111 @@ exports.getLoginLogs = async (req, res, next) => {
 // Update User (Admin or Self depending on context, originally put('/user/:id') or put('/api/users/:id') or put('/api/users/profile/:id'))
 exports.updateUser = async (req, res, next) => {
   const { id } = req.params;
-  const { name, email, role, isVerified } = req.body;
+  const { name, email, role, isVerified, password, otp } = req.body;
   try {
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
     // Check if requester is updating their own profile or is an admin
     if (req.user.role !== 'admin' && req.user.id.toString() !== id) {
-      return res.status(403).json({ success: false, message: 'You are not authorized to update this profile.' });
+      return res.status(403).json({ success: false, error: 'You are not authorized to update this profile.' });
     }
 
-    const updateData = { name };
+    if (name) user.name = name;
 
     // Only allow admin to update email, role, or isVerified
     if (req.user.role === 'admin') {
-      if (email) updateData.email = email;
-      if (role) updateData.role = role;
-      if (isVerified !== undefined) updateData.isVerified = isVerified;
+      if (email) user.email = email;
+      if (role) user.role = role;
+      if (isVerified !== undefined) user.isVerified = isVerified;
     } else {
       // If regular user attempts to change email, role, or isVerified, reject with 403 Forbidden
       if (email && email !== user.email) {
-        return res.status(403).json({ success: false, message: 'Only administrators can modify email addresses.' });
+        return res.status(403).json({ success: false, error: 'Only administrators can modify email addresses.' });
       }
       if (role && role !== user.role) {
-        return res.status(403).json({ success: false, message: 'Only administrators can modify user roles.' });
+        return res.status(403).json({ success: false, error: 'Only administrators can modify user roles.' });
       }
       if (isVerified !== undefined && isVerified !== user.isVerified) {
-        return res.status(403).json({ success: false, message: 'Only administrators can modify verification status.' });
+        return res.status(403).json({ success: false, error: 'Only administrators can modify verification status.' });
       }
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    ).select('-password');
+    // Process password update if requested
+    if (password) {
+      if (!otp) {
+        return res.status(400).json({ success: false, error: 'Verification OTP is required to change password' });
+      }
+      if (user.otp !== otp || new Date() > user.otpExpires) {
+        return res.status(400).json({ success: false, error: 'Invalid or expired verification code' });
+      }
+      
+      // Hash new password and clear OTP fields
+      user.password = await bcrypt.hash(password, 10);
+      user.otp = undefined;
+      user.otpExpires = undefined;
+    }
 
-    res.status(200).json({ success: true, message: 'User updated successfully', user: updatedUser });
+    await user.save();
+
+    const updatedUser = user.toObject();
+    delete updatedUser.password;
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'User updated successfully', 
+      user: updatedUser,
+      name: updatedUser.name,
+      email: updatedUser.email
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Request OTP for profile update verification
+exports.requestProfileOtp = async (req, res, next) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Allow user to request OTP only for their own profile, unless they are admin
+    if (req.user.role !== 'admin' && req.user.email !== email) {
+      return res.status(403).json({ success: false, error: 'You are not authorized to request OTP for this account' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    await user.save();
+
+    let isSmtpConfigured = !!(config.SMTP_USER && config.SMTP_PASS);
+    if (isSmtpConfigured) {
+      try {
+        await sendOTPEmail(
+          email,
+          otp,
+          'Confirm your password change - Sakshi Enterprises',
+          'verification'
+        );
+      } catch (mailError) {
+        console.error('SMTP Error during profile OTP dispatch, logged OTP to console.');
+        isSmtpConfigured = false;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: isSmtpConfigured 
+        ? 'Verification OTP sent to your email.' 
+        : 'OTP generated (SMTP not configured or failed to send email. OTP printed to console).',
+      otp: (!isSmtpConfigured || config.NODE_ENV === 'development') ? otp : undefined
+    });
   } catch (error) {
     next(error);
   }

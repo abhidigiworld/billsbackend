@@ -16,6 +16,7 @@ router.post('/logout', protect, authController.logout);
 router.get('/api/users', protect, restrictTo('admin'), authController.getAllUsers);
 router.put('/api/users/:id', protect, restrictTo('admin'), authController.updateUser);
 router.put('/api/users/profile/:id', protect, authController.updateUser);
+router.post('/api/users/profile/request-otp', protect, authController.requestProfileOtp);
 router.delete('/api/users/:id', protect, restrictTo('admin'), authController.deleteUser);
 
 // Admin-only logs and backups
