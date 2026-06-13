@@ -4,8 +4,8 @@ on:
   schedule:
     # 1. DB Backup: Runs every night at 2:00 AM UTC (7:30 AM IST)
     - cron: '0 2 * * *'
-    # 2. Attendance Email: Runs daily at 8:00 AM UTC (1:30 PM IST) on weekdays (Mon-Fri)
-    - cron: '0 8 * * 1-5'
+    # 2. Attendance Email: Check every 30 minutes every day (Monday to Sunday)
+    - cron: '*/30 * * * *'
   workflow_dispatch: # Allows manual triggering from the GitHub Actions UI
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
   trigger-attendance:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 8 * * 1-5'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/30 * * * *'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Attendance Email API

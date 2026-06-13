@@ -29,8 +29,8 @@ router.post('/api/cron/backup', checkCronSecret, async (req, res, next) => {
 router.post('/api/cron/attendance-email', checkCronSecret, async (req, res, next) => {
   try {
     console.log('[Cron Scheduler] Triggering daily supervisor attendance email job...');
-    // force = true to bypass time-of-day checks and already-run checks
-    await runDailySupervisorRequestJob(true);
+    // force = false to respect admin-configured time settings and check already-run status
+    await runDailySupervisorRequestJob(false);
     res.status(200).json({ success: true, message: 'Attendance email job completed successfully.' });
   } catch (error) {
     console.error('[Cron Scheduler] Attendance email job failed:', error);
