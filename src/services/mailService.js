@@ -13,7 +13,7 @@ const getTransporter = () => {
   });
 };
 
-const sendOTPEmail = async (email, otp, subject, text) => {
+const sendOTPEmail = async (email, otp, subject, type = 'verification') => {
   console.log(`[OTP Verification] OTP for ${email}: ${otp}`);
   
   if (!config.SMTP_USER || !config.SMTP_PASS) {
@@ -21,13 +21,128 @@ const sendOTPEmail = async (email, otp, subject, text) => {
     return { loggedToConsole: true };
   }
 
+  const isReset = type === 'reset';
+  const actionText = isReset ? 'password reset' : 'account verification';
+  const actionLabel = isReset ? 'Password Reset Code' : 'Verification Code';
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>${subject}</title>
+      <style>
+        body {
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          background-color: #f4f6f9;
+          color: #333333;
+          margin: 0;
+          padding: 0;
+          -webkit-font-smoothing: antialiased;
+        }
+        .email-container {
+          max-width: 500px;
+          margin: 30px auto;
+          background-color: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+          overflow: hidden;
+          border: 1px solid #e1e4e8;
+        }
+        .email-header {
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+          color: #ffffff;
+          padding: 24px 20px;
+          text-align: center;
+        }
+        .email-header h1 {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+        }
+        .email-body {
+          padding: 30px 24px;
+          line-height: 1.6;
+        }
+        .email-body p {
+          margin-top: 0;
+          margin-bottom: 20px;
+          font-size: 15px;
+          color: #4b5563;
+        }
+        .otp-container {
+          text-align: center;
+          margin: 25px 0;
+          padding: 18px;
+          background-color: #f3f4f6;
+          border-radius: 8px;
+          border: 1px dashed #d1d5db;
+        }
+        .otp-code {
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 32px;
+          font-weight: 850;
+          letter-spacing: 6px;
+          color: #111827;
+        }
+        .email-footer {
+          background-color: #f9fafb;
+          padding: 20px;
+          text-align: center;
+          font-size: 11px;
+          color: #6b7280;
+          border-top: 1px solid #f3f4f6;
+        }
+        .warning-box {
+          font-size: 12px;
+          color: #b91c1c;
+          background-color: #fef2f2;
+          padding: 12px 16px;
+          border-radius: 8px;
+          border: 1px solid #fee2e2;
+          margin-top: 25px;
+          line-height: 1.5;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-container">
+        <div class="email-header">
+          <h1>Sakshi Enterprises Portal</h1>
+        </div>
+        <div class="email-body">
+          <p>Hello,</p>
+          <p>You requested a one-time passcode (OTP) for <strong>${actionText}</strong> on the Sakshi Enterprises management system.</p>
+          <p>Please enter the following ${actionLabel} to complete the request:</p>
+          
+          <div class="otp-container">
+            <span class="otp-code">${otp}</span>
+          </div>
+          
+          <p style="font-size: 13px; color: #6b7280; text-align: center; margin-bottom: 0;">This code is valid for <strong>10 minutes</strong>. If you did not request this, please ignore this email.</p>
+          
+          <div class="warning-box">
+            <strong>⚠️ Security Notice:</strong> For your security, never share this code with anyone. Sakshi Enterprises team members will never ask for your OTP or password.
+          </div>
+        </div>
+        <div class="email-footer">
+          <strong>Sakshi Enterprises Management System</strong><br>
+          This is an automated system notification. Please do not reply.<br>
+          © 2026 Sakshi Enterprises. All rights reserved.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
   try {
     const transporter = getTransporter();
     await transporter.sendMail({
       from: `"Sakshi Enterprises" <${config.SMTP_USER}>`,
       to: email,
       subject: subject,
-      text: text,
+      html: htmlContent,
     });
     return { sent: true };
   } catch (error) {

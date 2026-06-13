@@ -38,26 +38,28 @@ exports.signup = async (req, res, next) => {
     });
     await newUser.save();
 
-    let isSmtpConfigured = true;
-    try {
-      await sendOTPEmail(
-        email,
-        otp,
-        'Verify your account - Sakshi Enterprises',
-        `Your verification code is: ${otp}. It is valid for 10 minutes.`
-      );
-    } catch (mailError) {
-      console.error('SMTP Error during signup OTP dispatch, logged OTP to console.');
-      isSmtpConfigured = false;
+    let isSmtpConfigured = !!(config.SMTP_USER && config.SMTP_PASS);
+    if (isSmtpConfigured) {
+      try {
+        await sendOTPEmail(
+          email,
+          otp,
+          'Verify your account - Sakshi Enterprises',
+          'verification'
+        );
+      } catch (mailError) {
+        console.error('SMTP Error during signup OTP dispatch, logged OTP to console.');
+        isSmtpConfigured = false;
+      }
     }
 
     res.status(201).json({
       success: true,
       message: isSmtpConfigured 
         ? 'Verification OTP sent to your email.' 
-        : 'Registration successful! (SMTP not configured, OTP printed to console).',
+        : 'Registration successful! (SMTP not configured or failed to send email. OTP printed to console).',
       email,
-      otp: (!config.SMTP_USER || !config.SMTP_PASS) ? otp : undefined
+      otp: (!isSmtpConfigured || config.NODE_ENV === 'development') ? otp : undefined
     });
   } catch (error) {
     next(error);
@@ -180,24 +182,26 @@ exports.resendOtp = async (req, res, next) => {
     user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    let isSmtpConfigured = true;
-    try {
-      await sendOTPEmail(
-        email,
-        otp,
-        'Verify your account - Sakshi Enterprises',
-        `Your verification code is: ${otp}. It is valid for 10 minutes.`
-      );
-    } catch (mailError) {
-      isSmtpConfigured = false;
+    let isSmtpConfigured = !!(config.SMTP_USER && config.SMTP_PASS);
+    if (isSmtpConfigured) {
+      try {
+        await sendOTPEmail(
+          email,
+          otp,
+          'Verify your account - Sakshi Enterprises',
+          'verification'
+        );
+      } catch (mailError) {
+        isSmtpConfigured = false;
+      }
     }
 
     res.status(200).json({
       success: true,
       message: isSmtpConfigured 
         ? 'New verification OTP sent to your email.' 
-        : 'New OTP generated (SMTP not configured, OTP printed to console).',
-      otp: (!config.SMTP_USER || !config.SMTP_PASS) ? otp : undefined
+        : 'New OTP generated (SMTP not configured or failed to send email. OTP printed to console).',
+      otp: (!isSmtpConfigured || config.NODE_ENV === 'development') ? otp : undefined
     });
   } catch (error) {
     next(error);
@@ -218,24 +222,26 @@ exports.forgotPassword = async (req, res, next) => {
     user.resetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    let isSmtpConfigured = true;
-    try {
-      await sendOTPEmail(
-        email,
-        resetOtp,
-        'Reset your password - Sakshi Enterprises',
-        `Your password reset code is: ${resetOtp}. It is valid for 10 minutes.`
-      );
-    } catch (mailError) {
-      isSmtpConfigured = false;
+    let isSmtpConfigured = !!(config.SMTP_USER && config.SMTP_PASS);
+    if (isSmtpConfigured) {
+      try {
+        await sendOTPEmail(
+          email,
+          resetOtp,
+          'Reset your password - Sakshi Enterprises',
+          'reset'
+        );
+      } catch (mailError) {
+        isSmtpConfigured = false;
+      }
     }
 
     res.status(200).json({
       success: true,
       message: isSmtpConfigured 
         ? 'Password reset OTP sent to your email.' 
-        : 'Password reset code generated (SMTP not configured, OTP printed to console).',
-      otp: (!config.SMTP_USER || !config.SMTP_PASS) ? resetOtp : undefined
+        : 'Password reset code generated (SMTP not configured or failed to send email. OTP printed to console).',
+      otp: (!isSmtpConfigured || config.NODE_ENV === 'development') ? resetOtp : undefined
     });
   } catch (error) {
     next(error);
