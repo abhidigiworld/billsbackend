@@ -10,6 +10,13 @@ const config = require('../config/config');
 exports.createInvoice = async (req, res, next) => {
   try {
     const invoiceData = req.body;
+
+    // Check for duplicate invoice number
+    const existing = await Invoice.findOne({ invoiceNo: invoiceData.invoiceNo });
+    if (existing) {
+      return res.status(409).json({ error: `Invoice number ${invoiceData.invoiceNo} already exists. Cannot save duplicate.` });
+    }
+
     const invoice = new Invoice({
       companyName: invoiceData.companyName,
       gstin: invoiceData.gstin,
@@ -28,6 +35,9 @@ exports.createInvoice = async (req, res, next) => {
     const savedInvoice = await invoice.save();
     res.status(201).json(savedInvoice);
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ error: 'This invoice number already exists. Cannot save duplicate.' });
+    }
     next(error);
   }
 };

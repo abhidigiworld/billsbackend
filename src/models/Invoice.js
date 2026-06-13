@@ -5,7 +5,7 @@ const invoiceSchema = new mongoose.Schema({
   gstin: String,
   state: String,
   stateCode: String,
-  invoiceNo: String,
+  invoiceNo: { type: String, required: true, unique: true },
   invoiceDate: Date,
   items: [{
     description: String,
