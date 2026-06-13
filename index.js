@@ -2,13 +2,8 @@ const config = require('./src/config/config');
 const connectDB = require('./src/config/db');
 const app = require('./src/app');
 
-const { startBackupScheduler } = require('./src/services/backupService');
-
 // Connect Database
-connectDB().then(() => {
-  // Start automated backup monthly daemon
-  startBackupScheduler();
-});
+connectDB();
 
 // Listen locally
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {

@@ -7,6 +7,7 @@ const employeeRoutes = require('./employees');
 const attendanceRoutes = require('./attendance');
 const salarySlipRoutes = require('./salarySlips');
 const aiChatRoutes = require('./aiChat');
+const cronRoutes = require('./cron');
 
 // Register feature routes
 router.use(authRoutes);
@@ -15,5 +16,6 @@ router.use(employeeRoutes);
 router.use(attendanceRoutes);
 router.use(salarySlipRoutes);
 router.use(aiChatRoutes);
+router.use(cronRoutes);
 
 module.exports = router;

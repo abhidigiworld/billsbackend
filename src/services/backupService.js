@@ -37,7 +37,7 @@ const getKolkataTime = () => {
   return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
 };
 
-const runMonthlyBackupJob = async () => {
+const runMonthlyBackupJob = async (force = false) => {
   try {
     const { sendBackupEmail } = require('./mailService');
 
@@ -52,19 +52,21 @@ const runMonthlyBackupJob = async () => {
     const kolkataTime = getKolkataTime();
     const currentDay = kolkataTime.getDate();
     
-    // Only run on the 1st of the month
-    if (currentDay !== 1) {
+    // Only run on the 1st of the month if not forced
+    if (!force && currentDay !== 1) {
       return;
     }
 
     // Current month string key, e.g. "2026-06"
     const currentMonthKey = `${kolkataTime.getFullYear()}-${String(kolkataTime.getMonth() + 1).padStart(2, '0')}`;
 
-    // 3. Check if we already successfully ran the backup for this month
-    const lastRunSetting = await SystemSettings.findOne({ key: 'last_monthly_backup_run_month' });
-    if (lastRunSetting && lastRunSetting.value === currentMonthKey) {
-      // Already run for this month
-      return;
+    // 3. Check if we already successfully ran the backup for this month if not forced
+    if (!force) {
+      const lastRunSetting = await SystemSettings.findOne({ key: 'last_monthly_backup_run_month' });
+      if (lastRunSetting && lastRunSetting.value === currentMonthKey) {
+        // Already run for this month
+        return;
+      }
     }
 
     // 4. Retrieve recipient email and validate that they are an active administrator
@@ -117,7 +119,7 @@ const runMonthlyBackupJob = async () => {
   }
 };
 
-const runDailySupervisorRequestJob = async () => {
+const runDailySupervisorRequestJob = async (force = false) => {
   try {
     const User = require('../models/User');
     const AttendanceRequest = require('../models/AttendanceRequest');
@@ -126,29 +128,34 @@ const runDailySupervisorRequestJob = async () => {
 
     // 1. Get Kolkata date/time
     const kolkataTime = getKolkataTime();
-    const currentHour = kolkataTime.getHours();
-    const currentMinute = kolkataTime.getMinutes();
     
-    // Retrieve target trigger time
-    const triggerTimeSetting = await SystemSettings.findOne({ key: 'attendance_trigger_time' });
-    const triggerTime = triggerTimeSetting ? triggerTimeSetting.value : '18:00';
-    
-    // Convert current and target time to minutes since midnight for easy comparison
-    const [targetHour, targetMinute] = triggerTime.split(':').map(Number);
-    const currentMinutes = currentHour * 60 + currentMinute;
-    const targetMinutes = targetHour * 60 + targetMinute;
+    if (!force) {
+      const currentHour = kolkataTime.getHours();
+      const currentMinute = kolkataTime.getMinutes();
+      
+      // Retrieve target trigger time
+      const triggerTimeSetting = await SystemSettings.findOne({ key: 'attendance_trigger_time' });
+      const triggerTime = triggerTimeSetting ? triggerTimeSetting.value : '18:00';
+      
+      // Convert current and target time to minutes since midnight for easy comparison
+      const [targetHour, targetMinute] = triggerTime.split(':').map(Number);
+      const currentMinutes = currentHour * 60 + currentMinute;
+      const targetMinutes = targetHour * 60 + targetMinute;
 
-    if (currentMinutes < targetMinutes) {
-      return;
+      if (currentMinutes < targetMinutes) {
+        return;
+      }
     }
 
     const todayStr = kolkataTime.toISOString().split('T')[0];
 
-    // 2. Verify if it already ran today
-    const lastRunSetting = await SystemSettings.findOne({ key: 'last_daily_request_run_date' });
-    if (lastRunSetting && lastRunSetting.value === todayStr) {
-      // Already ran today
-      return;
+    // 2. Verify if it already ran today if not forced
+    if (!force) {
+      const lastRunSetting = await SystemSettings.findOne({ key: 'last_daily_request_run_date' });
+      if (lastRunSetting && lastRunSetting.value === todayStr) {
+        // Already ran today
+        return;
+      }
     }
 
     // 3. Skip automatic triggers on days marked as a Holiday in the main register
@@ -225,22 +232,8 @@ const runDailySupervisorRequestJob = async () => {
   }
 };
 
-const startBackupScheduler = () => {
-  console.log('[Backup Scheduler] Initialized monthly database backup and supervisor request daemons...');
-  
-  // Run checks every 10 minutes (600,000 ms)
-  setInterval(() => {
-    runMonthlyBackupJob();
-    runDailySupervisorRequestJob();
-  }, 600000);
-  
-  // Also run initial checks shortly after startup
-  setTimeout(runMonthlyBackupJob, 5000);
-  setTimeout(runDailySupervisorRequestJob, 10000);
-};
-
 module.exports = {
   generateDatabaseBackup,
-  startBackupScheduler,
+  runMonthlyBackupJob,
   runDailySupervisorRequestJob
 };
