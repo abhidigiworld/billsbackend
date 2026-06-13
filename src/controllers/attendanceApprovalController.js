@@ -142,6 +142,34 @@ exports.getPendingApprovals = async (req, res, next) => {
 // Admin fetches request logs history
 exports.getRequestLogs = async (req, res, next) => {
   try {
+    const { page, limit } = req.query;
+
+    if (page) {
+      const pageNum = parseInt(page, 10) || 1;
+      const limitNum = parseInt(limit, 10) || 10;
+      const skipNum = (pageNum - 1) * limitNum;
+
+      const totalItems = await AttendanceRequest.countDocuments({});
+      const totalPages = Math.ceil(totalItems / limitNum);
+
+      const logs = await AttendanceRequest.find({})
+        .populate('supervisorId', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skipNum)
+        .limit(limitNum);
+
+      return res.status(200).json({
+        success: true,
+        data: logs,
+        pagination: {
+          totalItems,
+          totalPages,
+          currentPage: pageNum,
+          limit: limitNum
+        }
+      });
+    }
+
     const logs = await AttendanceRequest.find({})
       .populate('supervisorId', 'name email')
       .sort({ createdAt: -1 });

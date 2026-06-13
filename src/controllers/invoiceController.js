@@ -226,7 +226,46 @@ exports.bulkUpload = async (req, res, next) => {
 // Get All Invoices
 exports.getAllInvoices = async (req, res, next) => {
   try {
-    const invoices = await Invoice.find();
+    const { page, limit, search } = req.query;
+
+    let query = {};
+    if (search) {
+      query = {
+        $or: [
+          { invoiceNo: { $regex: search, $options: 'i' } },
+          { companyName: { $regex: search, $options: 'i' } }
+        ]
+      };
+    }
+
+    // If page is specified, run paginated query
+    if (page) {
+      const pageNum = parseInt(page, 10) || 1;
+      const limitNum = parseInt(limit, 10) || 10;
+      const skipNum = (pageNum - 1) * limitNum;
+
+      const totalItems = await Invoice.countDocuments(query);
+      const totalPages = Math.ceil(totalItems / limitNum);
+
+      const invoices = await Invoice.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skipNum)
+        .limit(limitNum);
+
+      return res.json({
+        success: true,
+        data: invoices,
+        pagination: {
+          totalItems,
+          totalPages,
+          currentPage: pageNum,
+          limit: limitNum
+        }
+      });
+    }
+
+    // Fallback: return all invoices (backward compatibility)
+    const invoices = await Invoice.find(query).sort({ createdAt: -1 });
     res.json(invoices);
   } catch (error) {
     next(error);

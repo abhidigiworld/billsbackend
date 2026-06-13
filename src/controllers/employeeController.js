@@ -3,7 +3,44 @@ const Employee = require('../models/Employee');
 // Get All Employees
 exports.getAllEmployees = async (req, res, next) => {
   try {
-    const employees = await Employee.find();
+    const { page, limit, search } = req.query;
+
+    let query = {};
+    if (search) {
+      query = {
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { designation: { $regex: search, $options: 'i' } }
+        ]
+      };
+    }
+
+    if (page) {
+      const pageNum = parseInt(page, 10) || 1;
+      const limitNum = parseInt(limit, 10) || 10;
+      const skipNum = (pageNum - 1) * limitNum;
+
+      const totalItems = await Employee.countDocuments(query);
+      const totalPages = Math.ceil(totalItems / limitNum);
+
+      const employees = await Employee.find(query)
+        .sort({ name: 1 })
+        .skip(skipNum)
+        .limit(limitNum);
+
+      return res.json({
+        success: true,
+        data: employees,
+        pagination: {
+          totalItems,
+          totalPages,
+          currentPage: pageNum,
+          limit: limitNum
+        }
+      });
+    }
+
+    const employees = await Employee.find(query).sort({ name: 1 });
     res.json(employees);
   } catch (error) {
     next(error);

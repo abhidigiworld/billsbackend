@@ -4,7 +4,66 @@ const Employee = require('../models/Employee');
 // Get All Salary Slips (Admin)
 exports.getAllSalarySlips = async (req, res, next) => {
   try {
-    const salarySlips = await SalarySlip.find().populate('employeeId', 'name designation grossSalary dateOfJoining');
+    const { page, limit, search, month, employeeId } = req.query;
+    let query = {};
+
+    if (employeeId) {
+      query.employeeId = employeeId;
+    }
+
+    if (month) {
+      query.monthOfSalary = month;
+    }
+
+    if (search) {
+      const matchedEmployees = await Employee.find({
+        name: { $regex: search, $options: 'i' }
+      }).select('_id');
+      const matchedIds = matchedEmployees.map(emp => emp._id);
+
+      const searchFilter = {
+        $or: [
+          { employeeId: { $in: matchedIds } },
+          { monthOfSalary: { $regex: search, $options: 'i' } }
+        ]
+      };
+
+      if (month) {
+        query = { $and: [ { monthOfSalary: month }, searchFilter ] };
+      } else {
+        query = searchFilter;
+      }
+    }
+
+    if (page) {
+      const pageNum = parseInt(page, 10) || 1;
+      const limitNum = parseInt(limit, 10) || 10;
+      const skipNum = (pageNum - 1) * limitNum;
+
+      const totalItems = await SalarySlip.countDocuments(query);
+      const totalPages = Math.ceil(totalItems / limitNum);
+
+      const salarySlips = await SalarySlip.find(query)
+        .populate('employeeId', 'name designation grossSalary dateOfJoining')
+        .sort({ createdAt: -1 })
+        .skip(skipNum)
+        .limit(limitNum);
+
+      return res.json({
+        success: true,
+        data: salarySlips,
+        pagination: {
+          totalItems,
+          totalPages,
+          currentPage: pageNum,
+          limit: limitNum
+        }
+      });
+    }
+
+    const salarySlips = await SalarySlip.find(query)
+      .populate('employeeId', 'name designation grossSalary dateOfJoining')
+      .sort({ createdAt: -1 });
     res.json(salarySlips);
   } catch (error) {
     next(error);
