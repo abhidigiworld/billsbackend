@@ -241,5 +241,6 @@ const startBackupScheduler = () => {
 
 module.exports = {
   generateDatabaseBackup,
-  startBackupScheduler
+  startBackupScheduler,
+  runDailySupervisorRequestJob
 };

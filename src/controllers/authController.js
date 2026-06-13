@@ -516,6 +516,15 @@ exports.sendBackupEmailNow = async (req, res, next) => {
 // Fetch all system settings merged with defaults
 exports.getSystemSettings = async (req, res, next) => {
   try {
+    // Passive background check for supervisor attendance email trigger
+    try {
+      const { runDailySupervisorRequestJob } = require('../services/backupService');
+      // Fire asynchronously to avoid blocking user settings retrieval request
+      runDailySupervisorRequestJob();
+    } catch (triggerErr) {
+      console.error('Failed to trigger daily supervisor email check passively:', triggerErr);
+    }
+
     const settings = await SystemSettings.find({});
     const settingsMap = {};
     settings.forEach(s => {
@@ -531,7 +540,8 @@ exports.getSystemSettings = async (req, res, next) => {
       company_address: settingsMap.company_address || 'D-435, Gali No.-59,Mahavir Enclave,Part-3,West Delhi-110059',
       company_logo: settingsMap.company_logo || '',
       company_signature: settingsMap.company_signature || '',
-      company_stamp: settingsMap.company_stamp || ''
+      company_stamp: settingsMap.company_stamp || '',
+      shift_hours: settingsMap.shift_hours !== undefined ? Number(settingsMap.shift_hours) : 8
     };
 
     res.status(200).json({
@@ -556,14 +566,19 @@ exports.updateSystemSettings = async (req, res, next) => {
       'company_address',
       'company_logo',
       'company_signature',
-      'company_stamp'
+      'company_stamp',
+      'shift_hours'
     ];
 
     for (const key of Object.keys(updates)) {
       if (allowedKeys.includes(key)) {
+        let val = updates[key];
+        if (key === 'shift_hours') {
+          val = Number(val) || 8;
+        }
         await SystemSettings.findOneAndUpdate(
           { key },
-          { value: updates[key] },
+          { value: val },
           { upsert: true, new: true }
         );
       }
