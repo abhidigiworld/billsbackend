@@ -86,7 +86,7 @@ exports.login = async (req, res, next) => {
     }
 
     if (!user.isVerified) {
-      return res.status(400).json({ success: false, message: 'Please verify your email address first' });
+      return res.status(400).json({ success: false, message: 'Please verify your email address first', email: user.email });
     }
 
     // Generate token
